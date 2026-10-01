@@ -1,0 +1,85 @@
+doc_id: POL-03
+title: Public Holidays
+version: 1.0
+effective_date: 2026-01-01
+category: Leave
+==========================================
+
+# Public Holidays
+
+This policy lists the public holidays observed by Acme Corp in 2026, explains floating holidays, and sets out how employees are compensated if they work on a public holiday. Annual paid time off is covered in the Paid Time Off (PTO) policy (POL-02).
+
+Policy owner: People team.
+
+## Who This Policy Covers
+
+This policy applies to all permanent and fixed-term employees. Part-time employees receive public holidays that fall on their normal working days, and floating holidays pro rata to their contracted hours, rounded to the nearest half day.
+
+## Company Public Holidays for 2026
+
+Acme Corp observes the following 10 company-wide public holidays in 2026. All offices are closed on these days.
+
+1. New Year's Day - Thursday 1 January 2026
+2. Founders' Day - Monday 16 February 2026
+3. Spring Holiday - Friday 3 April 2026
+4. Workers' Day - Friday 1 May 2026
+5. Midsummer Holiday - Monday 22 June 2026
+6. Independence Day - Friday 3 July 2026 (observed)
+7. Harvest Day - Monday 7 September 2026
+8. Community Day - Monday 12 October 2026
+9. Thanksgiving Day - Thursday 26 November 2026
+10. Christmas Day - Friday 25 December 2026
+
+When a public holiday falls on a Saturday or Sunday, it is observed on the nearest working day. The observed date is shown in the list above.
+
+The list for the following year is published on the company intranet by 1 November each year.
+
+## Year-End Office Closure
+
+In addition to the public holidays above, all offices close from Monday 28 December to Thursday 31 December 2026. These four days are a company gift and are not deducted from PTO. Employees required to provide essential cover during this period receive the same number of days to take as PTO by 31 March 2027.
+
+## Floating Holidays
+
+Each employee receives 2 floating holidays per calendar year. Floating holidays let employees mark religious, cultural or personal days that are not on the company list.
+
+### Booking Floating Holidays
+
+Floating holidays are booked in the PeopleHub portal, using the leave type "Floating holiday". They must be requested at least 10 working days in advance. Managers approve them on the same basis as PTO requests.
+
+### Rules for Floating Holidays
+
+- Floating holidays must be taken as full days.
+- Floating holidays cannot be carried over into the next calendar year. Unused floating holidays expire on 31 December.
+- Floating holidays are not paid out when employment ends.
+- New employees who join after 30 June receive 1 floating holiday for their first calendar year instead of 2.
+
+## Working on a Public Holiday
+
+Some roles, such as customer support and infrastructure on-call, may need to work on a public holiday. Work on a public holiday must be agreed in advance with your manager and recorded in PeopleHub.
+
+Employees who work on a public holiday receive both of the following:
+
+- pay at 2 times their normal rate for the hours worked (for salaried employees this is calculated from their daily rate); and
+- one day off in lieu, which must be taken within 60 days of the holiday worked.
+
+Days off in lieu that are not taken within 60 days expire unless your manager approved a delay in writing because of business needs.
+
+## Public Holidays During Other Leave
+
+- If a public holiday falls during PTO, it is not deducted from your PTO balance.
+- If a public holiday falls during sick leave, it is recorded as a public holiday, not as a sick day.
+- If a public holiday falls during paid parental leave, no additional day is granted.
+
+## Employees Based Outside Headquarters
+
+Employees permanently based in another country or region follow the statutory public holidays for that location instead of the list above, up to a maximum of 12 days. Their local list is published on the intranet. Floating holidays apply to all employees, wherever they are based.
+
+Employees who temporarily work abroad (see the Remote and Hybrid Work policy, POL-05) follow the headquarters holiday list, not the local list.
+
+## Questions
+
+Questions about holidays should go to your manager first and then to the People team through a PeopleHub ticket.
+
+## Document Control
+
+Version 1.0 - effective 1 January 2026 - owner People team - first release with the 2026 holiday list.

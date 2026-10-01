@@ -1,0 +1,14 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+storage/
+frontend/node_modules/
+frontend/dist/
+eval/results/*.tmp
+.DS_Store
+# never commit government ID images or demo recordings
+*.mov
+*.mp4

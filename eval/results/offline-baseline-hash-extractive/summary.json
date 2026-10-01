@@ -1,0 +1,81 @@
+{
+  "run": "offline-baseline-hash-extractive",
+  "timestamp_utc": "2026-10-01T10:50:17+00:00",
+  "commit": "unknown",
+  "url": "http://127.0.0.1:5000",
+  "health": {
+    "status": "ok",
+    "index_ready": true,
+    "index_loaded": false,
+    "chunks": 203,
+    "documents": 12,
+    "corpus_version": "v1-2a44e4aa53",
+    "embed_backend": "hash",
+    "llm_provider": "extractive",
+    "version": "1.0.0"
+  },
+  "settings": {
+    "embed_backend": "hash",
+    "llm_provider": "extractive",
+    "provider_label": "extractive:offline",
+    "top_k": 8,
+    "top_n": 4,
+    "score_threshold": 0.12,
+    "rerank": false,
+    "chunk_tokens": 500,
+    "chunk_overlap": 75,
+    "seed": 42
+  },
+  "grounding_method": "lexical-proxy (no JUDGE_PROVIDER set)",
+  "host": "Linux x86_64 / Python 3.11.15",
+  "n_questions": 28,
+  "metrics": {
+    "groundedness": {
+      "numerator": 22,
+      "denominator": 22,
+      "percent": 100.0
+    },
+    "citation_accuracy": {
+      "numerator": 16,
+      "denominator": 22,
+      "percent": 72.7
+    },
+    "citation_validity": {
+      "numerator": 23,
+      "denominator": 23,
+      "percent": 100.0
+    },
+    "partial_match": {
+      "numerator": 17,
+      "denominator": 23,
+      "percent": 73.9
+    },
+    "answer_coverage": {
+      "numerator": 22,
+      "denominator": 23,
+      "percent": 95.7
+    },
+    "refusal_accuracy": {
+      "numerator": 4,
+      "denominator": 5,
+      "percent": 80.0
+    },
+    "behavior_accuracy_all": {
+      "numerator": 26,
+      "denominator": 28,
+      "percent": 92.9
+    }
+  },
+  "latency": {
+    "n_requests": 20,
+    "n_successful": 20,
+    "failures": [],
+    "p50_ms": 6.5,
+    "p95_ms": 7.6,
+    "mean_ms": 6.5,
+    "max_ms": 9.1,
+    "warmup_ms": 630.3,
+    "warmup_status": 200,
+    "method": "client-observed wall clock, sequential, after 1 warm-up call; numpy linear percentile"
+  }
+}

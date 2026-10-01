@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend - install, import, tests, startup check
+    runs-on: ubuntu-latest
+    env:
+      EMBED_BACKEND: hash          # offline embedder: no model download in CI
+      LLM_PROVIDER: extractive     # offline generator: no API key in CI
+      PYTHONHASHSEED: "42"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install dependencies (CPU torch first)
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements-dev.txt
+
+      - name: Import check
+        run: python -c "import app, app.ingest, app.rag; print('import ok')"
+
+      - name: Corpus manifest is up to date
+        run: |
+          python scripts/build_manifest.py
+          git diff --exit-code data/manifest.json
+
+      - name: Build the vector index
+        run: python -m app.ingest
+
+      - name: Unit, contract and smoke tests
+        run: pytest -q
+
+      - name: Startup check (gunicorn + /health + /chat)
+        run: |
+          gunicorn app:app --bind 127.0.0.1:8000 --workers 1 --threads 2 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/health && break; sleep 1; done
+          curl -sf http://127.0.0.1:8000/health | python -c "import json,sys; b=json.load(sys.stdin); assert b['status']=='ok' and b['index_ready'], b; print(b)"
+          curl -sf -X POST http://127.0.0.1:8000/chat -H 'Content-Type: application/json' \
+            -d '{"question":"How many unused PTO days can I carry over?"}' \
+            | python -c "import json,sys; b=json.load(sys.stdin); assert b['status']=='answered' and b['citations'], b; print(b['answer'])"
+
+  frontend:
+    name: Frontend - install, test, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+  deploy:
+    name: Deploy to Railway (main only, optional)
+    needs: [backend, frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_SERVICE: ${{ vars.RAILWAY_SERVICE }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skip when Railway is not configured
+        if: env.RAILWAY_TOKEN == ''
+        run: echo "RAILWAY_TOKEN secret not set - skipping deploy (Railway GitHub auto-deploy can be used instead)."
+      - name: Deploy with the Railway CLI
+        if: env.RAILWAY_TOKEN != ''
+        run: |
+          npm install -g @railway/cli
+          railway up --ci ${RAILWAY_SERVICE:+--service "$RAILWAY_SERVICE"}

@@ -1,0 +1,98 @@
+doc_id: POL-11
+title: Performance Reviews and Promotion
+version: 1.0
+effective_date: 2026-01-01
+category: Performance
+==========================================
+
+# Performance Reviews and Promotion
+
+This policy explains how performance is reviewed at Acme Corp, how ratings are given, how promotions are decided, and how performance concerns are handled.
+
+Policy owner: People team.
+
+## Purpose
+
+Performance reviews help every employee understand what is expected of them, recognise good work, and plan their growth. Reviews look at both what you achieved (results) and how you achieved it (behaviour against the Acme Corp values described in the Employee Handbook Overview, POL-01).
+
+## Who Is Reviewed
+
+All permanent and fixed-term employees who have completed probation take part in the review cycle. Employees still on probation have probation check-ins instead (see POL-01). Interns receive an end-of-internship review.
+
+## The Review Cycle
+
+Acme Corp runs two reviews each year:
+
+- The mid-year review takes place in June. It is a development-focused conversation and does not include a formal rating.
+- The annual review takes place in December. It includes a formal rating and is used for pay and promotion decisions.
+
+Employees who join or complete probation after 30 September are not rated in that year's annual review, but they still have a development conversation with their manager.
+
+### Ongoing Check-ins
+
+Between reviews, managers hold one-to-one check-ins with each team member at least every 2 weeks. Goals are recorded in PeopleHub and can be updated at any time.
+
+## Annual Review Steps
+
+1. Self-assessment: the employee completes a self-assessment in PeopleHub by 1 December.
+2. Peer feedback: the employee nominates 3 to 5 colleagues to give feedback; the manager may add up to 2 more.
+3. Manager assessment: the manager drafts a rating and written summary.
+4. Calibration: managers in each department meet to compare draft ratings and make sure the scale is applied consistently.
+5. Review conversation: the manager discusses the final rating and summary with the employee by 20 December.
+6. Acknowledgement: the employee acknowledges the review in PeopleHub within 10 working days and may add written comments.
+
+## Rating Scale
+
+The annual review uses a 5-point rating scale:
+
+- 5 - Exceptional: consistently and significantly exceeds expectations in results and behaviour; a role model for others.
+- 4 - Exceeds Expectations: often goes beyond what the role requires.
+- 3 - Meets Expectations: fully delivers what the role requires. This is a strong, positive rating and the most common outcome.
+- 2 - Partially Meets Expectations: meets some but not all expectations; improvement is needed.
+- 1 - Below Expectations: does not meet the expectations of the role; significant improvement is required.
+
+There are no fixed quotas for each rating, but calibration checks that ratings across teams are fair and consistent.
+
+## Pay Reviews
+
+Annual pay increases take effect on 1 March following the annual review. Ratings of 3 or above are eligible for a merit increase. Ratings of 1 are not eligible for a merit increase or a bonus.
+
+## Promotion
+
+### Eligibility
+
+To be considered for promotion, an employee must:
+
+- have been in their current role for at least 12 months; and
+- have a rating of 4 (Exceeds Expectations) or 5 (Exceptional) in their most recent annual review; and
+- already be demonstrating many of the responsibilities of the next level, as described in the career framework on the intranet.
+
+### Promotion Process
+
+Promotions are decided twice per year, in March and September. Managers nominate employees with a written case. A promotion panel of at least 3 senior managers from outside the employee's immediate team reviews the case and makes the decision. Employees may also ask their manager to nominate them.
+
+Promotions take effect on the first day of the month after the panel decision. A promotion comes with a salary increase of at least 8%.
+
+### Applying for Internal Roles
+
+Employees who have completed probation and have been in their current role for at least 9 months may apply for open internal roles. Tell your manager before applying.
+
+## Managing Underperformance
+
+If an employee receives a rating of 1 or 2, or if serious performance concerns arise at any time, the manager discusses the concerns with the employee and agrees a Performance Improvement Plan (PIP) with support from the People team.
+
+A PIP lasts 60 days. It sets clear, measurable objectives, the support that will be provided, and review meetings at least every 2 weeks. At the end of the PIP the manager decides whether performance is now satisfactory, whether the PIP should be extended once by up to 30 days, or whether the matter moves to a formal capability process.
+
+Employees on a PIP are not eligible for promotion or internal transfers until the PIP is successfully completed.
+
+## Disagreeing with a Rating
+
+If you disagree with your annual rating, first discuss it with your manager. If the disagreement is not resolved, you may ask for a review by your manager's manager within 15 working days of the review conversation. Their decision is final.
+
+## Confidentiality
+
+Performance ratings are classified as Confidential and are visible only to the employee, their management chain and the People team. Review records are kept as part of the personnel file under the Data Privacy and Retention policy (POL-09).
+
+## Document Control
+
+Version 1.0 - effective 1 January 2026 - owner People team - first release.
