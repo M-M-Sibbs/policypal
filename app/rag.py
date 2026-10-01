@@ -63,6 +63,7 @@ class RagPipeline:
                 reranker = CrossEncoderReranker(settings.rerank_model)
         except Exception as exc:  # missing package, failed model download, out of memory
             raise IndexUnavailable(f"Retrieval models could not be loaded: {exc}") from exc
+        set_seeds(settings.seed)  # again, now that torch may be loaded
         retriever = Retriever(settings, store, embedder, reranker)
         return cls(settings, retriever, generator or build_generator(settings), meta)
 

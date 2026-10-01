@@ -185,7 +185,21 @@ Outputs go to `eval/results/<name>/`: `summary.md`, `summary.json`, `results.jso
 
 ---
 
-## 6. Deploying to Railway
+## 6. Deploying
+
+### Render (free plan)
+
+`render.yaml` and `Dockerfile.render` deploy a **lightweight build** that fits Render's free 512 MB instance (measured ~120 MB RSS): retrieval uses the built-in `hash` embedder without re-ranking, and answers still come from Groq. The full semantic pipeline (bge + cross-encoder) needs ~1–1.5 GB RAM; to use it on Render, pick a 2 GB plan and point `dockerfilePath` at `./Dockerfile`.
+
+1. Push the repository to GitHub.
+2. In Render: **New → Blueprint**, connect GitHub and select the repository. Render reads `render.yaml`.
+3. When asked, paste your Groq key into `LLM_API_KEY`, then click **Apply**. The first build takes a few minutes.
+4. Open the `https://policypal-xxxx.onrender.com` URL and check `/health`.
+5. Optional: copy the service's **Deploy Hook** URL (Settings → Deploy Hook) into a GitHub secret named `RENDER_DEPLOY_HOOK` and set `autoDeploy: false`, so deploys only happen after CI passes.
+
+Free instances sleep after ~15 minutes without traffic; the first request afterwards takes about a minute. Open the site a minute before a demo, and report cold-start time separately from the latency results.
+
+### Railway
 
 The repository includes a `Dockerfile` and `railway.json`. The image builds the React app, installs CPU-only PyTorch, downloads both models and builds the Chroma index at build time, so a container starts ready to answer.
 

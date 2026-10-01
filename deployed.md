@@ -2,12 +2,14 @@
 
 | Item | Value |
 |---|---|
-| Platform | Railway (Dockerfile build, `railway.json`) |
-| Public URL | *Not deployed yet — add the Railway domain here after the first deploy* |
+| Platform | Render free web service (Docker, `render.yaml` + `Dockerfile.render`) |
+| Public URL | *Add the onrender.com URL here after the first deploy* |
 | Deployed commit | – |
 | Health check | `GET /health` |
-| Configuration | `EMBED_BACKEND=sentence-transformers`, `RERANK=1`, `LLM_PROVIDER=groq`, `LLM_MODEL=…`, `SCORE_THRESHOLD=…` |
-| Cold start (first request after deploy/sleep) | – |
-| Deployed latency p50 / p95 | – (run `python -m eval.run --url <public-url> --name railway-latency`) |
+| Configuration | `EMBED_BACKEND=hash`, `RERANK=0`, `LLM_PROVIDER=groq`, `LLM_MODEL=llama-3.1-8b-instant`, `SCORE_THRESHOLD=0.12` (lightweight build for 512 MB RAM) |
+| Cold start (first request after sleep) | – |
+| Deployed latency p50 / p95 | – (run `python -m eval.run --url <public-url> --name render-latency`) |
 
-See README §6 for the deployment steps.
+The deployed build uses lexical (hash) retrieval because the free plan cannot hold the embedding and re-ranking models. Local runs use the full bge + cross-encoder pipeline. Report both configurations in design-and-evaluation.md.
+
+See README §6 for the deployment steps (Render, and Railway as an alternative).

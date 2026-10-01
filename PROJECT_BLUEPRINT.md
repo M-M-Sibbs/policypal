@@ -376,7 +376,7 @@ Changing chunking/retrieval/prompts after evaluation requires a new recorded run
 | D03 | Vector storage | Chroma 1.5.9 persistent client, cosine; rebuilt from scratch, not committed | Decided 2026-10-01 |
 | D04 | Embedding model/revision | `BAAI/bge-small-en-v1.5` + cross-encoder `ms-marco-MiniLM-L-6-v2` re-ranker; deterministic `hash` backend for CI/offline | Decided 2026-10-01; revision pin pending first download |
 | D05 | LLM provider/model and budget | Groq free tier, `llama-3.1-8b-instant`, temp 0, seed 42; OpenRouter as optional fallback; spend ceiling $0 (free tiers) | Decided 2026-10-01 |
-| D06 | Hosting | Railway via Dockerfile + `railway.json` (models and index baked into image); local demo remains the fallback | Decided 2026-10-01 / team request |
+| D06 | Hosting | **Render free plan** (2026-10-01 change): `render.yaml` + `Dockerfile.render`, lightweight build (hash retrieval, no re-ranker, Groq answers) to fit 512 MB RAM; full pipeline runs locally. Railway config (`Dockerfile`, `railway.json`) kept as the alternative for a ≥2 GB host | Decided 2026-10-01 / team request |
 | D07 | Conversation scope | Independent questions; no multi-turn context (stated in UI sidebar) | Decided 2026-10-01 |
 | D08 | API contract details | Blueprint contract kept; spec fields added as aliases (`refused`, `ref`, `doc_id`, `url`, `/docs`, health `index_loaded/chunks/version`); `input_value` accepted for Langflow; question limit 2,000 chars | Decided 2026-10-01 |
 | D09 | Corpus | 12 synthetic Acme Corp policies (5 md, 2 txt, 2 html, 3 pdf), 32 pages / 10,928 words; meets brief (30–120 pages), below spec's 50–70 estimate | Decided 2026-10-01 |
@@ -457,4 +457,4 @@ Blueprint sections updated:
 | Version | Date | Summary |
 |---|---|---|
 | 0.1 | 2026-10-01 | Initial development blueprint and tracker; all implementation completion claims remain unverified |
-| 0.2 | 2026-10-01 | Stack and interfaces decided (D01–D12); implementation, tests and offline evaluation recorded; production-model checks still open |
+| 0.2 | 2026-10-01 | Hosting switched to Render (D06); stack and interfaces decided (D01–D12); implementation, tests and offline evaluation recorded; production-model checks still open |

@@ -74,18 +74,22 @@ jobs:
       - run: npm run build
 
   deploy:
-    name: Deploy to Railway (main only, optional)
+    name: Deploy (main only, optional)
     needs: [backend, frontend]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
+      RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       RAILWAY_SERVICE: ${{ vars.RAILWAY_SERVICE }}
     steps:
       - uses: actions/checkout@v4
-      - name: Skip when Railway is not configured
-        if: env.RAILWAY_TOKEN == ''
-        run: echo "RAILWAY_TOKEN secret not set - skipping deploy (Railway GitHub auto-deploy can be used instead)."
+      - name: Skip when no deploy target is configured
+        if: env.RENDER_DEPLOY_HOOK == '' && env.RAILWAY_TOKEN == ''
+        run: echo "No RENDER_DEPLOY_HOOK or RAILWAY_TOKEN secret set - skipping deploy."
+      - name: Trigger Render deploy hook
+        if: env.RENDER_DEPLOY_HOOK != ''
+        run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK" > /dev/null && echo "Render deploy triggered."
       - name: Deploy with the Railway CLI
         if: env.RAILWAY_TOKEN != ''
         run: |

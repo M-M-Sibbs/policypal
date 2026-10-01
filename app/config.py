@@ -134,9 +134,10 @@ def set_seeds(seed: int) -> None:
         np.random.seed(seed)
     except ImportError:  # pragma: no cover
         pass
-    try:  # torch is only present with the sentence-transformers backend
-        import torch
+    # Seed torch only if the sentence-transformers backend already loaded it:
+    # importing torch just to seed it costs ~300 MB RAM on small hosts.
+    import sys
 
+    torch = sys.modules.get("torch")
+    if torch is not None:
         torch.manual_seed(seed)
-    except ImportError:
-        pass

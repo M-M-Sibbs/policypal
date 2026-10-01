@@ -51,12 +51,12 @@ Retrieval, generation and citation assembly are separate, so each can be tested 
 | Orchestration | Plain Python modules | The product spec chose it over LangChain: fewer abstractions, each step is visible, easy to explain and unit-test. LangChain was proposed in the blueprint (D02) and in chat; this decision is recorded in the blueprint. | LangChain, LlamaIndex |
 | Langflow | Custom component calling `/chat` | The team supplied Langflow's Chat Input component. Rather than duplicating retrieval inside Langflow, the component forwards the Chat Input message to the Flask API, so guardrails and citations are identical in both places. `/chat` also accepts Langflow's `input_value` field. | Rebuilding the pipeline as Langflow nodes (two sources of truth) |
 | Parsing | pypdf, BeautifulSoup, python-markdown | Covers the four corpus formats. PDF bookmarks give exact section starts and page numbers. | unstructured (heavy) |
-| Embeddings | `BAAI/bge-small-en-v1.5` via sentence-transformers | Free, local, 384-dimensional, strong for its size, small enough for a modest Railway instance. Uses the model's recommended query instruction prefix. | OpenAI/Cohere embeddings (cost, key), larger bge models (RAM) |
+| Embeddings | `BAAI/bge-small-en-v1.5` via sentence-transformers | Free, local, 384-dimensional, strong for its size, small enough for a modest 2 GB host. Uses the model's recommended query instruction prefix. | OpenAI/Cohere embeddings (cost, key), larger bge models (RAM) |
 | Offline embedder | Feature-hashing bag-of-words (`EMBED_BACKEND=hash`) | Lets CI and offline runs build a real index without downloading a model. It is lexical, not semantic, and is always labelled. | Mocking Chroma entirely (would not test the real index) |
 | Vector store | Chroma 1.5 persistent client, cosine space | Zero cost, file-based, named in the brief; the index is rebuilt reproducibly and not committed. | FAISS (no metadata store), pgvector (needs a database) |
 | Re-ranker | `cross-encoder/ms-marco-MiniLM-L-6-v2` | Cheap precision boost over raw similarity: scores each (question, passage) pair jointly. Re-ranks 8 candidates to 4. | No re-ranking (k-only) |
 | LLM | Groq `llama-3.1-8b-instant` by default; OpenRouter/OpenAI via env; optional fallback provider | Fast, free tier, OpenAI-compatible API so providers are swappable by configuration. Temperature 0 and a fixed `seed`. | Local LLM (too much RAM for the host) |
-| Hosting | Railway (Dockerfile) | Supports Docker builds, health checks and GitHub deploys. Models and index are baked into the image so cold start does no downloads. | Render (spec's original suggestion) |
+| Hosting | Render free web service (`render.yaml`, `Dockerfile.render`) | Free, Docker-based, health checks, auto-deploy from GitHub or a deploy hook after CI. Its 512 MB RAM cannot hold PyTorch and the two models, so the deployed build uses the hash embedder without re-ranking (measured ~120 MB RSS) while Groq still generates answers. | Railway or a 2 GB Render plan with the full `Dockerfile` (models baked into the image) |
 | CI | GitHub Actions | Required by the brief. | – |
 
 ## 3. Key design decisions
@@ -146,13 +146,13 @@ gunicorn app:app --bind 127.0.0.1:5000 --workers 1 --threads 4 &
 python -m eval.run --url http://127.0.0.1:5000 --name groq-bge-rerank
 ```
 
-Then copy `eval/results/groq-bge-rerank/summary.md` into this section, complete the human review columns in `review_sheet.csv`, and repeat the latency run against the Railway URL (`--url https://<app>.up.railway.app --name railway-latency`), noting cold-start time separately.
+Then copy `eval/results/groq-bge-rerank/summary.md` into this section, complete the human review columns in `review_sheet.csv`, and repeat the latency run against the Render URL (`--url https://<app>.onrender.com --name render-latency`, configuration: hash + Groq), noting cold-start time separately.
 
 | Run | Groundedness | Citation accuracy | Partial match | Refusal accuracy | p50 / p95 |
 |---|---|---|---|---|---|
 | Offline baseline (hash, extractive) | 100.0% (proxy) | 72.7% | 73.9% | 80.0% | 6.5 / 7.6 ms |
 | Production (bge + rerank + Groq) | not run | not run | not run | not run | not run |
-| Railway deployment latency | – | – | – | – | not run |
+| Render deployment (hash + Groq) | – | – | – | – | not run |
 
 ### Optional ablations (not run)
 
@@ -161,7 +161,7 @@ The pipeline exposes everything needed for the comparisons suggested in the spec
 ## 7. Known limitations
 
 - The production embedder, re-ranker and Groq client have not been executed in the build workspace (network blocked); they are implemented against the documented library and API interfaces and must be exercised in the first local run (README §1).
-- The Docker image was written but not built in the build workspace (no Docker daemon); Railway builds it from the repository.
+- The Docker image was written but not built in the build workspace (no Docker daemon); Render builds `Dockerfile.render` from the repository.
 - Token counts are approximated by words.
 - Multi-turn questions are out of scope by design.
 - Groundedness without a judge uses a lexical proxy, which cannot detect a sentence that reuses evidence words with a different meaning; human review is the reference.
