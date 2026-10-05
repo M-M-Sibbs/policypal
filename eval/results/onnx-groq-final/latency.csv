@@ -1,0 +1,11 @@
+id,http_status,status,client_latency_ms,server_latency_ms
+Q01,200,answered,782.1,755
+Q02,200,answered,981.7,954
+Q03,200,answered,902.2,882
+Q04,200,answered,679.8,676
+Q05,200,answered,744.8,741
+Q06,200,answered,708.4,705
+Q07,200,answered,711.3,708
+Q08,200,answered,920.4,917
+Q09,200,answered,851.2,828
+Q10,200,answered,797.7,794

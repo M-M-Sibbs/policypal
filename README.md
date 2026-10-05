@@ -2,7 +2,7 @@
 
 PolicyPal is a Retrieval-Augmented Generation (RAG) web application that answers employee questions about the policies of a fictional company, Acme Corp. It retrieves the relevant policy passages, generates an answer using only those passages, and returns numbered citations with the supporting snippet and a link to the source section. Questions outside the policy corpus, or not supported by the retrieved evidence, are refused instead of answered from general knowledge.
 
-- **Live app:** <https://policypal-jex2.onrender.com> (health: [/health](https://policypal-jex2.onrender.com/health), policy management: [/admin](https://policypal-jex2.onrender.com/admin)). See [deployed.md](deployed.md).
+- **Live app:** <https://policypal-8u6n.onrender.com> (health: [/health](https://policypal-8u6n.onrender.com/health), policy management: [/admin](https://policypal-8u6n.onrender.com/admin)). See [deployed.md](deployed.md).
 - **Design and evaluation:** [design-and-evaluation.md](design-and-evaluation.md)
 - **AI tooling:** [ai-tooling.md](ai-tooling.md)
 
@@ -30,9 +30,9 @@ PolicyPal is a Retrieval-Augmented Generation (RAG) web application that answers
 
 The fastest way to see everything is the live app. The free Render instance sleeps when idle, so the first request can take about a minute.
 
-1. Open <https://policypal-jex2.onrender.com> and click an example question, or ask your own (e.g. *"How long is primary caregiver parental leave?"*). Click a citation number to open its source card, then **View source** to see the cited section.
+1. Open <https://policypal-8u6n.onrender.com> and click an example question, or ask your own (e.g. *"How long is primary caregiver parental leave?"*). Click a citation number to open its source card, then **View source** to see the cited section.
 2. Ask something outside the policies (*"What is the capital of France?"*) to see the refusal.
-3. **Try a policy update** at [/admin](https://policypal-jex2.onrender.com/admin). The admin token is given in the submission PDF.
+3. **Try a policy update** at [/admin](https://policypal-8u6n.onrender.com/admin). The admin token is given in the submission PDF.
    - Upload [`examples/policy-updates/POL-02_paid_time_off_update.md`](examples/policy-updates/) with **Replaces → POL-02**. Ask *"How many unused PTO days can I carry over?"* again: the answer changes from 5 to **8** days and cites **POL-02 version 1.1**.
    - Upload [`examples/policy-updates/POL-13_parking_policy.md`](examples/policy-updates/) as a new policy. Ask *"How many spaces does the headquarters car park have?"* (answer: 120, cited to POL-13).
    - Click **Reset to original policies** when done.
@@ -202,7 +202,7 @@ Set `ADMIN_TOKEN` (in `.env` locally, or in Render → Environment), open **`/ad
 - **Remove / Revert:** removing an uploaded replacement brings the original back; removing an original hides it.
 - **Reset to original policies** discards every runtime change.
 
-Files do not need special formatting. Missing metadata is filled in: the ID comes from a `POL-13_…` file name (otherwise `DOC-<name>`), the title from the first heading, the version defaults to 1.0 and the effective date to today. You can override any of these on the form. A template is available from the admin page ([`/api/admin/template`](https://policypal-jex2.onrender.com/api/admin/template)), and two ready-made examples are in [`examples/policy-updates/`](examples/policy-updates/).
+Files do not need special formatting. Missing metadata is filled in: the ID comes from a `POL-13_…` file name (otherwise `DOC-<name>`), the title from the first heading, the version defaults to 1.0 and the effective date to today. You can override any of these on the form. A template is available from the admin page ([`/api/admin/template`](https://policypal-8u6n.onrender.com/api/admin/template)), and two ready-made examples are in [`examples/policy-updates/`](examples/policy-updates/).
 
 Runtime uploads are stored in `storage/uploads/` (`POLICY_UPLOAD_DIR`), never in `data/policies/`, so reset always restores the committed corpus. On Render's free plan the disk is temporary: uploads last until the service restarts or redeploys.
 
@@ -210,7 +210,7 @@ Runtime uploads are stored in `storage/uploads/` (`POLICY_UPLOAD_DIR`), never in
 
 ```bash
 TOKEN=your-admin-token
-URL=http://127.0.0.1:5000        # or https://policypal-jex2.onrender.com
+URL=http://127.0.0.1:5000        # or https://policypal-8u6n.onrender.com
 
 curl -H "Authorization: Bearer $TOKEN" $URL/api/admin/policies                      # list
 curl -H "Authorization: Bearer $TOKEN" -F "file=@examples/policy-updates/POL-13_parking_policy.md" \
@@ -302,7 +302,7 @@ $env:JUDGE_PROVIDER="groq"; $env:JUDGE_API_KEY="<groq key>"; $env:JUDGE_MODEL="l
 python -m eval.run --url http://127.0.0.1:5000 --name onnx-groq-judge --latency-n 20 --delay-s 5
 ```
 
-To measure the deployed app, point `--url` at `https://policypal-jex2.onrender.com` (open the site first so it is awake).
+To measure the deployed app, point `--url` at `https://policypal-8u6n.onrender.com` (open the site first so it is awake).
 
 ## 10. Tests and CI/CD
 

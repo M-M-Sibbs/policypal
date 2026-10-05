@@ -879,7 +879,7 @@ Conversation-memory reasoning across several user turns is outside the current P
 
 ### Deployment
 
-The app is publicly deployed on Render's free plan at <https://policypal-jex2.onrender.com> with the same ONNX + Groq configuration (see `deployed.md`). The free instance sleeps after about 15 minutes without traffic, so the first request after idle is slow (cold start); this is reported separately from request latency.
+The app is publicly deployed on Render's free plan at <https://policypal-8u6n.onrender.com> with the same ONNX + Groq configuration (see `deployed.md`). The free instance sleeps after about 15 minutes without traffic, so the first request after idle is slow (cold start); this is reported separately from request latency.
 
 The deployed latency run (`eval/results/render-latency/`) should be recorded in Section 6 once measured; the Render free CPU is slower than the development machine, so higher p50/p95 values than the local run are expected.
 

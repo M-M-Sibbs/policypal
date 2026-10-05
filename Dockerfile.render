@@ -1,39 +1,61 @@
-# Lightweight image for Render's free plan (512 MB RAM).
+# Render image for PolicyPal using the tested ONNX semantic configuration.
 #
-# No PyTorch or sentence-transformers: retrieval uses the built-in hash
-# embedder without re-ranking, and answers still come from the Groq LLM.
-# For the full semantic pipeline use the main Dockerfile on a plan with at
-# least 2 GB RAM (e.g. Render Standard or Railway).
+# This build avoids PyTorch and sentence-transformers. Chroma's built-in
+# ONNX MiniLM embedding function provides the semantic embeddings used by
+# the final local benchmark.
+#
+# If a specific Render instance cannot fit this configuration in memory,
+# fall back to EMBED_BACKEND=hash and SCORE_THRESHOLD=0.12.
 
 # ---- Stage 1: build the React frontend ---------------------------------------
 FROM node:22-slim AS frontend
+
 WORKDIR /fe
+
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
+
 COPY frontend/ ./
 RUN npm run build
 
+
 # ---- Stage 2: Flask API + RAG pipeline ---------------------------------------
 FROM python:3.11-slim
+
+# Render passes the service's environment variables to the build as build
+# arguments, so the index is always built with the same embedding settings
+# the running app uses (a mismatch makes /health report index_ready: false).
+ARG EMBED_BACKEND=onnx
+ARG EMBED_MODEL=all-MiniLM-L6-v2-onnx
+ARG CHUNK_TOKENS=500
+ARG CHUNK_OVERLAP=75
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     ANONYMIZED_TELEMETRY=False \
-    EMBED_BACKEND=hash \
+    EMBED_BACKEND=${EMBED_BACKEND} \
+    EMBED_MODEL=${EMBED_MODEL} \
+    CHUNK_TOKENS=${CHUNK_TOKENS} \
+    CHUNK_OVERLAP=${CHUNK_OVERLAP} \
     RERANK=0
+
 WORKDIR /app
 
-COPY requirements.txt .
-RUN grep -v "sentence-transformers" requirements.txt > requirements-slim.txt \
-    && pip install -r requirements-slim.txt
+COPY requirements-lite.txt .
+RUN pip install -r requirements-lite.txt
 
 COPY app/ app/
 COPY data/ data/
 COPY scripts/ scripts/
 COPY --from=frontend /fe/dist frontend/dist
 
-# Build the Chroma index into the image so the service starts ready.
-RUN python -m app.ingest
+# Build the semantic Chroma index into the image.
+# The ONNX MiniLM model is downloaded automatically during this step.
+RUN PRELOAD_PIPELINE=0 python -m app.ingest
 
 EXPOSE 10000
-CMD ["sh", "-c", "PRELOAD_PIPELINE=1 exec gunicorn app:app --bind 0.0.0.0:${PORT:-10000} --workers 1 --threads 4 --timeout 120 --access-logfile -"]
+
+# Safety net: if the runtime settings differ from the ones the index was built
+# with, rebuild the index before starting (slower start, but never a broken app).
+CMD ["sh", "-c", "PRELOAD_PIPELINE=0 python scripts/check_index.py || PRELOAD_PIPELINE=0 python -m app.ingest; PRELOAD_PIPELINE=1 exec gunicorn app:app --bind 0.0.0.0:${PORT:-10000} --workers 1 --threads 4 --timeout 120 --access-logfile -"]

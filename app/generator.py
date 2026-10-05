@@ -133,9 +133,18 @@ class OpenAICompatibleClient:
 
 
 class ChatGenerator:
+    """Primary API-backed generator with deterministic extractive fallback.
+
+    The configured LLM provider is attempted first. If every configured API
+    provider fails because of a missing key, timeout, rate limit, HTTP error,
+    or malformed response, PolicyPal falls back to the local
+    ExtractiveGenerator so grounded policy answers can still be returned.
+    """
+
     def __init__(self, clients: list[OpenAICompatibleClient], word_target: int):
         if not clients:
             raise ValueError("at least one LLM client is required")
+
         self.clients = clients
         self.word_target = word_target
         self.last_label = clients[0].label
@@ -144,17 +153,37 @@ class ChatGenerator:
     def label(self) -> str:
         return self.clients[0].label
 
-    def generate(self, question: str, hits: list[Hit], retry: bool = False) -> str:
-        messages = build_messages(question, hits, self.word_target, retry=retry)
-        error: ProviderError | None = None
-        for client in self.clients:  # primary, then optional fallback
+    def generate(
+        self,
+        question: str,
+        hits: list[Hit],
+        retry: bool = False,
+    ) -> str:
+        messages = build_messages(
+            question,
+            hits,
+            self.word_target,
+            retry=retry,
+        )
+
+        last_error: ProviderError | None = None
+
+        # Try the configured API provider(s) first.
+        for client in self.clients:
             try:
                 text = client.complete(messages)
                 self.last_label = client.label
                 return text
             except ProviderError as exc:
-                error = exc
-        raise error  # type: ignore[misc]
+                last_error = exc
+
+        # Every API provider failed. Fall back to the local grounded
+        # extractive generator instead of making the whole request fail.
+        fallback = ExtractiveGenerator()
+        text = fallback.generate(question, hits, retry=retry)
+        self.last_label = fallback.label
+
+        return text
 
 
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9\"(])|\n+")

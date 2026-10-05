@@ -1,0 +1,82 @@
+{
+  "run": "onnx-groq-final",
+  "timestamp_utc": "2026-10-04T13:43:52+00:00",
+  "commit": "unknown",
+  "url": "http://127.0.0.1:5000",
+  "health": {
+    "status": "ok",
+    "index_ready": true,
+    "index_loaded": false,
+    "chunks": 203,
+    "documents": 12,
+    "corpus_version": "v1-2a44e4aa53",
+    "embed_backend": "onnx",
+    "llm_provider": "groq",
+    "version": "1.0.0"
+  },
+  "settings": {
+    "embed_backend": "onnx",
+    "llm_provider": "groq",
+    "provider_label": "groq:openai/gpt-oss-20b",
+    "top_k": 8,
+    "top_n": 4,
+    "score_threshold": 0.3,
+    "rerank": false,
+    "chunk_tokens": 500,
+    "chunk_overlap": 75,
+    "seed": 42,
+    "delay_s": 5.0
+  },
+  "grounding_method": "lexical-proxy (no JUDGE_PROVIDER set)",
+  "host": "Windows AMD64 / Python 3.11.9",
+  "n_questions": 28,
+  "metrics": {
+    "groundedness": {
+      "numerator": 17,
+      "denominator": 23,
+      "percent": 73.9
+    },
+    "citation_accuracy": {
+      "numerator": 23,
+      "denominator": 23,
+      "percent": 100.0
+    },
+    "citation_validity": {
+      "numerator": 23,
+      "denominator": 23,
+      "percent": 100.0
+    },
+    "partial_match": {
+      "numerator": 22,
+      "denominator": 23,
+      "percent": 95.7
+    },
+    "answer_coverage": {
+      "numerator": 23,
+      "denominator": 23,
+      "percent": 100.0
+    },
+    "refusal_accuracy": {
+      "numerator": 5,
+      "denominator": 5,
+      "percent": 100.0
+    },
+    "behavior_accuracy_all": {
+      "numerator": 28,
+      "denominator": 28,
+      "percent": 100.0
+    }
+  },
+  "latency": {
+    "n_requests": 10,
+    "n_successful": 10,
+    "failures": [],
+    "p50_ms": 789.9,
+    "p95_ms": 954.1,
+    "mean_ms": 808.0,
+    "max_ms": 981.7,
+    "warmup_ms": 1816.2,
+    "warmup_status": 200,
+    "method": "client-observed wall clock, sequential, after 1 warm-up call; numpy linear percentile"
+  }
+}

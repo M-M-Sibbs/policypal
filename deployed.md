@@ -4,9 +4,9 @@ PolicyPal is deployed on Render (free web service, Docker).
 
 | | |
 |---|---|
-| Live application | <https://policypal-jex2.onrender.com> |
-| Health check | <https://policypal-jex2.onrender.com/health> |
-| Policy management | <https://policypal-jex2.onrender.com/admin> (admin token provided in the submission PDF) |
+| Live application | <https://policypal-8u6n.onrender.com> |
+| Health check | <https://policypal-8u6n.onrender.com/health> |
+| Policy management | <https://policypal-8u6n.onrender.com/admin> (admin token provided in the submission PDF) |
 | Build files | `render.yaml`, `Dockerfile.render`, `requirements-lite.txt` |
 
 The free instance sleeps after about 15 minutes without traffic. The first request after that takes roughly a minute while it wakes; later requests are fast.
@@ -41,4 +41,4 @@ Uploads are kept on the container's temporary disk, so they also disappear when 
 | Measurement | Result |
 |---|---|
 | Cold start (first request after sleep) | *record here* |
-| p50 / p95 over 20 warm requests | *record here* — `python -m eval.run --url https://policypal-jex2.onrender.com --name render-latency --latency-n 20 --delay-s 5` |
+| p50 / p95 over 20 warm requests | *record here* — `python -m eval.run --url https://policypal-8u6n.onrender.com --name render-latency --latency-n 20 --delay-s 5` |

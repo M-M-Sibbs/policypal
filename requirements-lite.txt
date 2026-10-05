@@ -1,0 +1,11 @@
+# Lightweight runtime for local offline demos and Render free tier.
+# Uses EMBED_BACKEND=hash and RERANK=0; no PyTorch/model downloads required.
+flask==3.1.3
+gunicorn==26.2.0
+chromadb==1.5.9
+pypdf==6.19.0
+beautifulsoup4==4.15.0
+markdown==3.11
+requests==2.34.2
+python-dotenv==1.2.4
+numpy==2.4.6
