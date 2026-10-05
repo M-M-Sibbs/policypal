@@ -17,6 +17,8 @@ def settings(tmp_path_factory):
     base = load_settings()
     return base.with_overrides(
         chroma_dir=tmp_path_factory.mktemp("chroma"),
+        upload_dir=tmp_path_factory.mktemp("uploads"),
+        admin_token="",
         embed_backend="hash",
         embed_model="hash",
         rerank=False,

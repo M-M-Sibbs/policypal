@@ -62,10 +62,15 @@ class ParsedDocument:
     meta: dict
     sections: list[Section]
     page_count: int | None = None
+    derived_keys: set = field(default_factory=set)  # metadata filled in by derive_metadata
 
     @property
     def doc_id(self) -> str:
         return self.meta["doc_id"]
+
+    @property
+    def word_count(self) -> int:
+        return sum(len(s.text.split()) for s in self.sections)
 
 
 def _parse_key_values(block: str) -> dict:
@@ -130,23 +135,42 @@ def _markdown_body_to_sections(body: str, title: str) -> list[Section]:
     return [s for s in sections if s.blocks]
 
 
+def read_text_file(path: Path) -> str:
+    """Read a text policy file, tolerating a UTF-8 BOM, Windows line endings
+    and legacy Windows-1252 encoding (common for files saved on Windows)."""
+    raw = path.read_bytes()
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = raw.decode("cp1252", errors="replace")
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def _first_heading(body: str) -> str | None:
+    m = re.search(r"^#\s+(.+?)\s*#*\s*$", body, re.M)
+    return _clean_markdown_inline(m.group(1)).strip() if m else None
+
+
 def parse_markdown(path: Path) -> ParsedDocument:
-    text = path.read_text(encoding="utf-8")
+    """Markdown with an optional YAML-style front-matter block."""
+    text = read_text_file(path)
     m = FRONT_MATTER_RE.match(text)
-    if not m:
-        raise ValueError(f"{path.name}: missing front-matter block")
-    meta = _parse_key_values(m.group(1))
-    body = text[m.end():]
+    meta = _parse_key_values(m.group(1)) if m else {}
+    body = text[m.end():] if m else text
+    meta.setdefault("title", _first_heading(body) or _title_from_filename(path))
     return ParsedDocument(path, "md", meta, _markdown_body_to_sections(body, meta["title"]))
 
 
 def parse_text(path: Path) -> ParsedDocument:
-    text = path.read_text(encoding="utf-8")
+    """Plain text with an optional `key: value` header block ended by a ==== line."""
+    text = read_text_file(path)
     m = TXT_HEADER_RE.match(text)
-    if not m:
-        raise ValueError(f"{path.name}: missing header block terminated by a ==== line")
-    meta = _parse_key_values(m.group(1))
-    body = text[m.end():]
+    header = _parse_key_values(m.group(1)) if m else {}
+    if m and not {"doc_id", "title"} & header.keys():
+        m, header = None, {}  # a ==== underline, not a metadata header
+    meta = header
+    body = text[m.end():] if m else text
+    meta.setdefault("title", _first_heading(body) or _title_from_filename(path))
     return ParsedDocument(path, "txt", meta, _markdown_body_to_sections(body, meta["title"]))
 
 
@@ -163,17 +187,21 @@ def clean_html_soup(html: str):
 def parse_html(path: Path) -> ParsedDocument:
     from bs4 import BeautifulSoup
 
-    raw = path.read_text(encoding="utf-8")
+    raw = read_text_file(path)
     head = BeautifulSoup(raw, "html.parser")
     meta = {
         tag.get("name"): tag.get("content", "").strip()
         for tag in head.find_all("meta")
-        if tag.get("name")
+        if tag.get("name") in {"doc_id", "title", "version", "effective_date", "category"}
     }
-    if "doc_id" not in meta:
-        raise ValueError(f"{path.name}: missing <meta name=doc_id>")
     soup = clean_html_soup(raw)
     root = soup.find("main") or soup.body or soup
+    if not meta.get("title"):
+        h1 = root.find("h1")
+        title_tag = head.find("title")
+        meta["title"] = normalise_ws(
+            (h1.get_text(" ") if h1 else "") or (title_tag.get_text(" ") if title_tag else "")
+        ) or _title_from_filename(path)
 
     sections: list[Section] = []
     current = Section(heading=meta["title"], level=1, anchor=slugify(meta["title"]))
@@ -213,7 +241,13 @@ def parse_pdf(path: Path) -> ParsedDocument:
 
     reader = PdfReader(str(path))
     info = reader.metadata or {}
-    meta = {"title": str(info.get("/Title", path.stem)), "doc_id": str(info.get("/Subject", ""))}
+    meta = {}
+    if info.get("/Title"):
+        meta["title"] = normalise_ws(str(info.get("/Title")))
+    subject = normalise_ws(str(info.get("/Subject") or ""))
+    if re.fullmatch(r"[A-Za-z]{2,10}-\d{1,4}", subject):
+        meta["doc_id"] = subject.upper()
+    meta.setdefault("title", _title_from_filename(path))
     for part in str(info.get("/Keywords", "")).split(";"):
         if "=" in part:
             k, _, v = part.partition("=")
@@ -287,7 +321,59 @@ def parse_pdf(path: Path) -> ParsedDocument:
     return ParsedDocument(path, "pdf", meta, sections, page_count=len(reader.pages))
 
 
-def parse_document(path: Path) -> ParsedDocument:
+DOC_ID_RE = re.compile(r"^[A-Z0-9][A-Z0-9-]{0,31}$")
+DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+METADATA_KEYS = ("doc_id", "title", "version", "effective_date", "category")
+
+
+def _title_from_filename(path: Path) -> str:
+    stem = re.sub(r"^[A-Za-z]{2,10}-\d{1,4}[_ -]+", "", path.stem)  # drop a POL-12_ prefix
+    stem = re.sub(r"[_-]+", " ", stem).strip()
+    return stem[:1].upper() + stem[1:] if stem else path.stem
+
+
+def doc_id_from_filename(path: Path) -> str:
+    m = re.match(r"^([A-Za-z]{2,10}-\d{1,4})(?=[_ .-]|$)", path.stem)
+    if m:
+        return m.group(1).upper()
+    slug = re.sub(r"[^A-Za-z0-9]+", "-", path.stem).strip("-").upper()
+    return ("DOC-" + slug)[:32].rstrip("-") or "DOC"
+
+
+def derive_metadata(doc: ParsedDocument, today: str | None = None) -> None:
+    """Fill in metadata a file does not declare, so any md/txt/html/pdf policy
+    can be indexed. Declared values always win; derived keys are recorded."""
+    from datetime import date
+
+    defaults = {
+        "doc_id": doc_id_from_filename(doc.path),
+        "title": _title_from_filename(doc.path),
+        "version": "1.0",
+        "effective_date": today or date.today().isoformat(),
+        "category": "General",
+    }
+    for key, value in defaults.items():
+        if not str(doc.meta.get(key) or "").strip():
+            doc.meta[key] = value
+            doc.derived_keys.add(key)
+    doc.meta["doc_id"] = str(doc.meta["doc_id"]).strip().upper()
+
+
+def validate_metadata(meta: dict, name: str) -> None:
+    if not DOC_ID_RE.match(meta["doc_id"]):
+        raise ValueError(f"{name}: doc_id {meta['doc_id']!r} must be 1-32 letters, digits or dashes (e.g. POL-13)")
+    if not DATE_RE.match(str(meta["effective_date"])):
+        raise ValueError(f"{name}: effective_date must look like 2026-01-31")
+    if not re.fullmatch(r"[0-9A-Za-z][0-9A-Za-z.\-]{0,15}", str(meta["version"])):
+        raise ValueError(f"{name}: version must be short, e.g. 1.0 or 2.1")
+    if len(str(meta["title"])) > 120:
+        raise ValueError(f"{name}: title must be 120 characters or fewer")
+
+
+def parse_document(path: Path, overrides: dict | None = None, derive: bool = True) -> ParsedDocument:
+    """Parse a policy file. `overrides` (e.g. from an upload form or sidecar
+    file) replace declared metadata; with `derive`, anything still missing is
+    filled in from the file name and content."""
     suffix = path.suffix.lower()
     if suffix == ".md":
         doc = parse_markdown(path)
@@ -299,7 +385,15 @@ def parse_document(path: Path) -> ParsedDocument:
         doc = parse_pdf(path)
     else:
         raise ValueError(f"unsupported file type: {path.name}")
+    for key, value in (overrides or {}).items():
+        if key in METADATA_KEYS and str(value or "").strip():
+            doc.meta[key] = str(value).strip()
+    if derive:
+        derive_metadata(doc)
     for key in ("doc_id", "title", "version", "effective_date"):
         if not doc.meta.get(key):
             raise ValueError(f"{path.name}: missing metadata field {key!r}")
+    validate_metadata(doc.meta, path.name)
+    if not doc.sections or doc.word_count == 0:
+        raise ValueError(f"{path.name}: no readable text found (scanned PDFs are not supported)")
     return doc

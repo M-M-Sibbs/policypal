@@ -36,6 +36,20 @@ def read_index_meta(chroma_dir: Path) -> dict | None:
         return None
 
 
+def existing_embeddings(chroma_dir: Path, collection_name: str) -> dict[str, tuple[str, list[float]]]:
+    """chunk_id -> (text, embedding) from the current index, for reuse when
+    re-indexing after an update. Empty if there is no index yet."""
+    if read_index_meta(chroma_dir) is None:
+        return {}
+    client = _client(chroma_dir)
+    collection = client.get_collection(collection_name, embedding_function=None)
+    res = collection.get(include=["documents", "embeddings"])
+    return {
+        cid: (doc, [float(x) for x in emb])
+        for cid, doc, emb in zip(res["ids"], res["documents"], res["embeddings"])
+    }
+
+
 def write_index(chroma_dir: Path, collection_name: str, chunks: list[Chunk], embeddings: list[list[float]], meta: dict) -> None:
     """Rebuild idempotently: drop the collection, then add every chunk.
     Rebuilding from scratch (instead of upserting) guarantees that removed or

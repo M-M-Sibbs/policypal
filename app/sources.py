@@ -14,7 +14,8 @@ from pathlib import Path
 import markdown
 
 from .config import Settings
-from .parsing import FRONT_MATTER_RE, TXT_HEADER_RE, clean_html_soup, slugify
+from .corpus import entry_path, read_corpus_file
+from .parsing import FRONT_MATTER_RE, TXT_HEADER_RE, clean_html_soup, read_text_file, slugify
 
 PAGE_TEMPLATE = """<!doctype html>
 <html lang="en">
@@ -51,8 +52,12 @@ PAGE_TEMPLATE = """<!doctype html>
 
 
 def load_registry(settings: Settings) -> dict[str, dict]:
-    manifest = json.loads(settings.manifest_path.read_text(encoding="utf-8"))
-    return {d["document_id"]: d for d in manifest["documents"]}
+    """Documents in the current index (including runtime updates); falls back
+    to the committed manifest before the first index build."""
+    corpus = read_corpus_file(settings)
+    if corpus is None:
+        corpus = json.loads(settings.manifest_path.read_text(encoding="utf-8"))
+    return {d["document_id"]: d for d in corpus["documents"]}
 
 
 def _toc_slugify(value: str, separator: str) -> str:  # python-markdown signature
@@ -84,15 +89,19 @@ def resolve_source(settings: Settings, doc_id: str) -> tuple[str, Path | str] | 
     entry = load_registry(settings).get(doc_id)
     if entry is None:
         return None
-    path = settings.policy_dir / entry["filename"]
+    path = entry_path(settings, entry)
+    if not path.exists():
+        return None
     if entry["format"] == "pdf":
         return "pdf", path
-    raw = path.read_text(encoding="utf-8")
+    raw = read_text_file(path)
     if entry["format"] == "md":
         m = FRONT_MATTER_RE.match(raw)
         body = _render_markdownish(raw[m.end():] if m else raw)
     elif entry["format"] == "txt":
         m = TXT_HEADER_RE.match(raw)
+        if m and not re.search(r"^(doc_id|title)\s*:", m.group(1), re.M):
+            m = None  # a ==== underline, not a metadata header
         body = _render_markdownish(raw[m.end():] if m else raw)
     else:
         body = _render_html(raw)

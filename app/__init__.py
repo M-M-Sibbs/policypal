@@ -26,9 +26,13 @@ def create_app(settings: Settings | None = None, pipeline_factory=None) -> Flask
 
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"), format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
+    flask_app.config["MAX_CONTENT_LENGTH"] = settings.max_upload_mb * 1024 * 1024
+
+    from .admin import admin_bp
     from .routes import bp
 
     flask_app.register_blueprint(bp)
+    flask_app.register_blueprint(admin_bp)
 
     @flask_app.after_request
     def security_headers(resp):
@@ -40,6 +44,12 @@ def create_app(settings: Settings | None = None, pipeline_factory=None) -> Flask
     @flask_app.errorhandler(404)
     def not_found(_err):
         return jsonify({"status": "not_found", "message": "Not found."}), 404
+
+    @flask_app.errorhandler(413)
+    def too_large(_err):
+        return jsonify(
+            {"status": "file_too_large", "message": f"Files must be {settings.max_upload_mb} MB or smaller."}
+        ), 413
 
     @flask_app.errorhandler(405)
     def method_not_allowed(_err):

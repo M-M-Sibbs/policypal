@@ -1,5 +1,5 @@
-"""Download the embedding and re-ranking models into the Hugging Face cache so
-the first request (and offline runs) don't wait for a download.
+"""Download the configured embedding (and re-ranking) models into the local
+cache so the first request does not wait for a download. Used by the Dockerfile.
 
     python scripts/download_models.py
 """
@@ -11,19 +11,21 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.config import load_settings  # noqa: E402
+from app.embeddings import build_embedder  # noqa: E402
 
 
 def main() -> int:
     s = load_settings()
-    if s.embed_backend != "sentence-transformers":
-        print(f"EMBED_BACKEND={s.embed_backend}: nothing to download")
+    if s.embed_backend == "hash":
+        print("EMBED_BACKEND=hash: nothing to download")
         return 0
-    from sentence_transformers import CrossEncoder, SentenceTransformer
-
-    SentenceTransformer(s.embed_model, device="cpu")
-    print(f"cached {s.embed_model}")
+    embedder = build_embedder(s.embed_backend, s.embed_model)
+    embedder.embed_documents(["warm-up"])  # ONNX downloads its model on first use
+    print(f"cached {embedder.model_id}")
     if s.rerank:
-        CrossEncoder(s.rerank_model, device="cpu")
+        from app.retriever import CrossEncoderReranker
+
+        CrossEncoderReranker(s.rerank_model)
         print(f"cached {s.rerank_model}")
     return 0
 

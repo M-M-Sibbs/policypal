@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import threading
 import time
+from contextlib import contextmanager
 
 from .citations import build_citations, normalise_markers
 from .config import Settings, set_seeds
-from .embeddings import build_embedder
+from .embeddings import get_embedder
 from .generator import build_generator
 from .guardrails import (
     REFUSAL_INSUFFICIENT,
@@ -35,7 +36,7 @@ def check_index(settings: Settings) -> tuple[bool, str, dict | None]:
             f"{settings.embed_backend}. Rebuild the index.",
             meta,
         )
-    if settings.embed_backend == "sentence-transformers" and meta.get("embed_model") != settings.embed_model:
+    if settings.embed_backend in {"sentence-transformers", "onnx"} and meta.get("embed_model") != settings.embed_model:
         return False, f"Index was built with {meta.get('embed_model')}; rebuild for {settings.embed_model}.", meta
     return True, "ok", meta
 
@@ -58,7 +59,7 @@ class RagPipeline:
         except Exception as exc:  # corrupt or unreadable index
             raise IndexUnavailable(f"Index could not be opened: {type(exc).__name__}") from exc
         try:
-            embedder = embedder or build_embedder(settings.embed_backend, settings.embed_model)
+            embedder = embedder or get_embedder(settings.embed_backend, settings.embed_model)
             if reranker is None and settings.rerank:
                 reranker = CrossEncoderReranker(settings.rerank_model)
         except Exception as exc:  # missing package, failed model download, out of memory
@@ -117,20 +118,66 @@ class RagPipeline:
         return self._refusal("insufficient_evidence", REFUSAL_UNCITED, retrieval, started)
 
 
+class ReadWriteLock:
+    """Many concurrent readers (chat requests) or one writer (re-indexing
+    after a policy update). Writers wait for in-flight answers to finish and
+    block new ones, so no request ever reads a half-rebuilt index."""
+
+    def __init__(self):
+        self._cond = threading.Condition()
+        self._readers = 0
+        self._writer = False
+
+    @contextmanager
+    def read(self):
+        with self._cond:
+            while self._writer:
+                self._cond.wait()
+            self._readers += 1
+        try:
+            yield
+        finally:
+            with self._cond:
+                self._readers -= 1
+                self._cond.notify_all()
+
+    @contextmanager
+    def write(self):
+        with self._cond:
+            while self._writer:
+                self._cond.wait()
+            self._writer = True
+            while self._readers:
+                self._cond.wait()
+        try:
+            yield
+        finally:
+            with self._cond:
+                self._writer = False
+                self._cond.notify_all()
+
+
 class PipelineHolder:
     """Loads the pipeline lazily (models are slow to load) and lets /health
-    report readiness without triggering a load."""
+    report readiness without triggering a load. `index_lock` coordinates chat
+    requests with re-indexing."""
 
     def __init__(self, settings: Settings, factory=None):
         self.settings = settings
         self._factory = factory or (lambda: RagPipeline.from_settings(settings))
         self._pipeline: RagPipeline | None = None
         self._lock = threading.Lock()
+        self.index_lock = ReadWriteLock()
         self.load_error: str | None = None
 
     @property
     def loaded(self) -> bool:
         return self._pipeline is not None
+
+    @property
+    def embedder(self):
+        """The embedder of the loaded pipeline, if any (reused when re-indexing)."""
+        return self._pipeline.retriever.embedder if self._pipeline is not None else None
 
     def get(self) -> RagPipeline:
         if self._pipeline is None:

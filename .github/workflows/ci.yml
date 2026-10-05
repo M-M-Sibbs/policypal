@@ -39,15 +39,18 @@ jobs:
       - name: Corpus manifest is up to date
         run: |
           python scripts/build_manifest.py
-          git diff --exit-code data/manifest.json
+          git diff --exit-code data/manifest.json || (echo "::error::data/manifest.json is out of date. Run: python scripts/build_manifest.py and commit the result." && exit 1)
 
-      - name: Build the vector index
-        run: python -m app.ingest
+      - name: Build the vector index (strict - committed policies must match data/manifest.json)
+        run: python -m app.ingest --strict
 
       - name: Unit, contract and smoke tests
         run: pytest -q
 
-      - name: Startup check (gunicorn + /health + /chat)
+      - name: Startup check (gunicorn + /health + /chat + policy update)
+        env:
+          ADMIN_TOKEN: ci-admin-token
+          POLICY_UPLOAD_DIR: /tmp/policypal-uploads
         run: |
           gunicorn app:app --bind 127.0.0.1:8000 --workers 1 --threads 2 &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/health && break; sleep 1; done
@@ -55,6 +58,13 @@ jobs:
           curl -sf -X POST http://127.0.0.1:8000/chat -H 'Content-Type: application/json' \
             -d '{"question":"How many unused PTO days can I carry over?"}' \
             | python -c "import json,sys; b=json.load(sys.stdin); assert b['status']=='answered' and b['citations'], b; print(b['answer'])"
+          # add a policy at runtime, then ask about it
+          curl -sf -X POST http://127.0.0.1:8000/api/admin/policies -H "Authorization: Bearer $ADMIN_TOKEN" \
+            -F "file=@examples/policy-updates/POL-13_parking_policy.md" \
+            | python -c "import json,sys; b=json.load(sys.stdin); assert b['status']=='added', b; print(b['message'])"
+          curl -sf -X POST http://127.0.0.1:8000/chat -H 'Content-Type: application/json' \
+            -d '{"question":"How many spaces does the headquarters car park have?"}' \
+            | python -c "import json,sys; b=json.load(sys.stdin); assert b['citations'][0]['document_id']=='POL-13', b; print(b['answer'])"
 
   frontend:
     name: Frontend - install, test, build

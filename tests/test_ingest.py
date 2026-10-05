@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import pytest
 
 from app.chunking import chunk_document
-from app.ingest import build_chunks, corpus_version, load_manifest, run_ingest
+from app.corpus import collect_corpus, corpus_version, file_digest, load_manifest, verify_committed
+from app.ingest import build_chunks, run_ingest
 from app.parsing import parse_document
 from app.vectorstore import VectorStore
 
@@ -68,7 +70,8 @@ def test_chunks_respect_size_overlap_and_ids():
 
 
 def test_chunk_metadata_and_source_links(settings):
-    chunks = build_chunks(settings, load_manifest(settings))
+    docs = collect_corpus(settings)
+    chunks = build_chunks(settings, docs, "test")
     pdf_chunks = [c for c in chunks if c.format == "pdf"]
     other = [c for c in chunks if c.format != "pdf"]
     assert all(c.source_url.startswith(f"/sources/{c.document_id}#page=") for c in pdf_chunks)
@@ -76,18 +79,56 @@ def test_chunk_metadata_and_source_links(settings):
     assert all(c.section and c.title and c.document_version for c in chunks)
 
 
-def test_rebuild_is_idempotent(settings, tmp_path):
+def test_rebuild_is_idempotent_and_reuses_embeddings(settings, tmp_path):
     s = settings.with_overrides(chroma_dir=tmp_path / "idx")
     first = run_ingest(s, quiet=True)
     second = run_ingest(s, quiet=True)
     assert first["chunk_count"] == second["chunk_count"] == VectorStore(s.chroma_dir, s.collection_name).count()
-    assert first["corpus_version"] == second["corpus_version"] == corpus_version(load_manifest(s))
+    assert first["corpus_version"] == second["corpus_version"] == corpus_version(load_manifest(s)["documents"])
+    assert first["embedded_chunks"] == first["chunk_count"] and second["embedded_chunks"] == 0
     meta = json.loads((s.chroma_dir / "index_meta.json").read_text())
     assert meta["embed_backend"] == "hash" and meta["seed"] == 42
 
 
-def test_changed_file_is_detected(settings, tmp_path):
-    manifest = load_manifest(settings)
-    manifest["documents"][0]["sha256"] = "0" * 64
+def test_committed_corpus_version_is_stable(settings):
+    # The evaluation results in eval/results/ were produced on this corpus version.
+    assert corpus_version(load_manifest(settings)["documents"]) == "v1-2a44e4aa53"
+
+
+def test_strict_mode_detects_changed_or_unlisted_files(settings, tmp_path):
+    policies = tmp_path / "policies"
+    shutil.copytree(settings.policy_dir, policies)
+    s = settings.with_overrides(policy_dir=policies, chroma_dir=tmp_path / "idx")
+    target = policies / "POL-02_paid_time_off.md"
+    target.write_text(target.read_text(encoding="utf-8").replace("Up to 5", "Up to 7"), encoding="utf-8")
     with pytest.raises(ValueError, match="changed since the manifest"):
-        build_chunks(settings, manifest)
+        run_ingest(s, quiet=True, strict=True)
+    # non-strict mode simply indexes the edited file
+    run_ingest(s, quiet=True)
+    shutil.copy(settings.policy_dir / target.name, target)  # restore, then add an unlisted file
+    (policies / "POL-13_parking.md").write_text("# Parking\n\nStaff park in Lot B.\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="not in data/manifest.json"):
+        verify_committed(s)
+
+
+def test_crlf_checkout_has_same_hash(tmp_path):
+    src = POLICIES / "POL-02_paid_time_off.md"
+    crlf = tmp_path / src.name
+    crlf.write_bytes(src.read_bytes().replace(b"\n", b"\r\n"))
+    assert file_digest(crlf) == file_digest(src)
+
+
+def test_files_without_metadata_get_derived_metadata(tmp_path):
+    md = tmp_path / "POL-13_parking_policy.md"
+    md.write_text("# Parking Policy\n\n## Allocation\n\nEmployees park in Lot B.\n", encoding="utf-8")
+    doc = parse_document(md)
+    assert doc.meta["doc_id"] == "POL-13" and doc.meta["title"] == "Parking Policy"
+    assert doc.meta["version"] == "1.0" and {"doc_id", "version"} <= doc.derived_keys
+    txt = tmp_path / "travel notes.txt"
+    txt.write_text("Travel Notes\n============\n\nBook trains early.\n", encoding="cp1252")
+    doc = parse_document(txt)
+    assert doc.meta["doc_id"] == "DOC-TRAVEL-NOTES" and "Book trains early." in doc.sections[0].text
+    with pytest.raises(ValueError, match="no readable text"):
+        empty = tmp_path / "empty.md"
+        empty.write_text("---\ntitle: Empty\n---\n", encoding="utf-8")
+        parse_document(empty)

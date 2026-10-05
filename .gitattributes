@@ -1,0 +1,6 @@
+# Normalise text files to LF in the repository.
+* text=auto
+# Keep policy files byte-for-byte identical on every OS (their hashes are in
+# data/manifest.json; hashing also ignores CRLF, this is belt and braces).
+data/policies/** -text
+*.pdf binary

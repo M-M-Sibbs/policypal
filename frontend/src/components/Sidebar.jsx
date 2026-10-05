@@ -28,6 +28,9 @@ export default function Sidebar({ id, open, policies, onNew, onClose }) {
             ))}
           </ul>
         )}
+        <a className="manage-link" href="/admin">
+          Manage policies →
+        </a>
         <p className="muted small fineprint">Acme Corp is fictional. All policies are synthetic documents created for this project.</p>
       </aside>
     </>

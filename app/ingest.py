@@ -1,70 +1,38 @@
-"""Offline ingestion: manifest -> parse -> clean -> chunk -> embed -> Chroma.
+"""Ingestion: corpus -> parse -> clean -> chunk -> embed -> Chroma.
 
-    python -m app.ingest            # uses settings from the environment / .env
+    python -m app.ingest              # index data/policies (+ any runtime uploads)
+    python -m app.ingest --strict     # CI: also require data/manifest.json to match
     EMBED_BACKEND=hash python -m app.ingest   # offline, no model download
 
 The build is deterministic: files are processed in sorted order, the seed is
-fixed, and the index is rebuilt from scratch each time.
+fixed, and the collection is rebuilt from scratch each time. Embeddings of
+chunks whose text did not change are reused from the previous index, so
+re-indexing after a single policy update only embeds that policy.
 """
 from __future__ import annotations
 
 import argparse
-import hashlib
-import json
 import sys
 import time
 from pathlib import Path
 
 from .chunking import Chunk, chunk_document
 from .config import Settings, load_settings, set_seeds
-from .embeddings import build_embedder, passage_text
-from .parsing import SUPPORTED_SUFFIXES, parse_document
-from .vectorstore import write_index
+from .corpus import (
+    CorpusDocument,
+    collect_corpus,
+    corpus_version,
+    load_manifest,  # noqa: F401  (re-exported for scripts and tests)
+    write_corpus_file,
+)
+from .embeddings import get_embedder, passage_text
+from .vectorstore import existing_embeddings, read_index_meta, write_index
 
 
-def load_manifest(settings: Settings) -> dict:
-    return json.loads(settings.manifest_path.read_text(encoding="utf-8"))
-
-
-def corpus_version(manifest: dict) -> str:
-    joined = "|".join(f"{d['document_id']}:{d['version']}:{d['sha256']}" for d in manifest["documents"])
-    return "v1-" + hashlib.sha256(joined.encode()).hexdigest()[:10]
-
-
-def verify_manifest(settings: Settings, manifest: dict) -> list[Path]:
-    """Every file listed must exist with the recorded hash, and every policy
-    file on disk must be listed: the index never contains unregistered docs."""
-    paths = []
-    listed = set()
-    for doc in manifest["documents"]:
-        path = settings.policy_dir / doc["filename"]
-        if not path.exists():
-            raise FileNotFoundError(f"manifest lists missing file {doc['filename']}")
-        digest = hashlib.sha256(path.read_bytes()).hexdigest()
-        if digest != doc["sha256"]:
-            raise ValueError(
-                f"{doc['filename']} changed since the manifest was built; run `python scripts/build_manifest.py`"
-            )
-        listed.add(path.name)
-        paths.append(path)
-    unlisted = [
-        p.name for p in settings.policy_dir.iterdir() if p.suffix.lower() in SUPPORTED_SUFFIXES and p.name not in listed
-    ]
-    if unlisted:
-        raise ValueError(f"policy files not in manifest: {unlisted}")
-    return sorted(paths)
-
-
-def build_chunks(settings: Settings, manifest: dict) -> list[Chunk]:
-    version = corpus_version(manifest)
-    by_file = {d["filename"]: d for d in manifest["documents"]}
+def build_chunks(settings: Settings, docs: list[CorpusDocument], version: str) -> list[Chunk]:
     chunks: list[Chunk] = []
-    for path in verify_manifest(settings, manifest):
-        doc = parse_document(path)
-        expected = by_file[path.name]["document_id"]
-        if doc.doc_id != expected:
-            raise ValueError(f"{path.name}: doc_id {doc.doc_id} does not match manifest {expected}")
-        for chunk in chunk_document(doc, settings.chunk_tokens, settings.chunk_overlap):
+    for item in docs:
+        for chunk in chunk_document(item.doc, settings.chunk_tokens, settings.chunk_overlap):
             chunk.corpus_version = version
             chunks.append(chunk)
     ids = [c.chunk_id for c in chunks]
@@ -73,30 +41,64 @@ def build_chunks(settings: Settings, manifest: dict) -> list[Chunk]:
     return chunks
 
 
-def run_ingest(settings: Settings, embedder=None, quiet: bool = False) -> dict:
+def _reusable(settings: Settings, embedder) -> dict[str, tuple[str, list[float]]]:
+    """Previous embeddings, only if they came from the same model."""
+    meta = read_index_meta(settings.chroma_dir)
+    if not meta or meta.get("embed_backend") != settings.embed_backend or meta.get("embed_model") != embedder.model_id:
+        return {}
+    try:
+        return existing_embeddings(settings.chroma_dir, settings.collection_name)
+    except Exception:  # unreadable index: just embed everything again
+        return {}
+
+
+def run_ingest(settings: Settings, embedder=None, quiet: bool = False, strict: bool = False, reuse: bool = True) -> dict:
     set_seeds(settings.seed)
     started = time.perf_counter()
-    manifest = load_manifest(settings)
-    chunks = build_chunks(settings, manifest)
-    embedder = embedder or build_embedder(settings.embed_backend, settings.embed_model)
-    embeddings = embedder.embed_documents([passage_text(c.title, c.section, c.text) for c in chunks])
+    docs = collect_corpus(settings, strict=strict)
+    entries = [d.manifest_entry() for d in docs]
+    version = corpus_version(entries)
+    chunks = build_chunks(settings, docs, version)
+    embedder = embedder or get_embedder(settings.embed_backend, settings.embed_model)
+
+    texts = [passage_text(c.title, c.section, c.text) for c in chunks]
+    previous = _reusable(settings, embedder) if reuse else {}
+    embeddings: list[list[float] | None] = []
+    todo = []
+    for i, (chunk, text) in enumerate(zip(chunks, texts)):
+        old = previous.get(chunk.chunk_id)
+        if old is not None and old[0] == chunk.text:
+            embeddings.append(old[1])
+        else:
+            embeddings.append(None)
+            todo.append(i)
+    if todo:
+        fresh = embedder.embed_documents([texts[i] for i in todo])
+        for i, vector in zip(todo, fresh):
+            embeddings[i] = vector
+
     meta = {
-        "corpus_version": corpus_version(manifest),
-        "document_count": len(manifest["documents"]),
+        "corpus_version": version,
+        "document_count": len(docs),
         "chunk_count": len(chunks),
+        "embedded_chunks": len(todo),
+        "reused_chunks": len(chunks) - len(todo),
         "embed_backend": settings.embed_backend,
         "embed_model": embedder.model_id,
         "chunk_tokens": settings.chunk_tokens,
         "chunk_overlap": settings.chunk_overlap,
         "seed": settings.seed,
+        "uploaded_documents": sum(d.origin != "original" for d in docs),
         "build_seconds": round(time.perf_counter() - started, 2),
     }
     write_index(settings.chroma_dir, settings.collection_name, chunks, embeddings, meta)
+    write_corpus_file(settings, docs, version)
     if not quiet:
         print(
             f"Indexed {meta['chunk_count']} chunks from {meta['document_count']} documents "
             f"into {settings.chroma_dir} ({meta['embed_backend']}: {meta['embed_model']}, "
-            f"corpus {meta['corpus_version']}, {meta['build_seconds']}s)"
+            f"corpus {meta['corpus_version']}, embedded {meta['embedded_chunks']}, "
+            f"reused {meta['reused_chunks']}, {meta['build_seconds']}s)"
         )
     return meta
 
@@ -106,6 +108,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--chunk-tokens", type=int)
     parser.add_argument("--chunk-overlap", type=int)
     parser.add_argument("--chroma-dir", type=Path)
+    parser.add_argument("--strict", action="store_true", help="require data/manifest.json to match data/policies (CI)")
+    parser.add_argument("--no-reuse", action="store_true", help="re-embed every chunk")
     args = parser.parse_args(argv)
     settings = load_settings()
     overrides = {}
@@ -115,7 +119,7 @@ def main(argv: list[str] | None = None) -> int:
         overrides["chunk_overlap"] = args.chunk_overlap
     if args.chroma_dir:
         overrides["chroma_dir"] = args.chroma_dir
-    run_ingest(settings.with_overrides(**overrides))
+    run_ingest(settings.with_overrides(**overrides), strict=args.strict, reuse=not args.no_reuse)
     return 0
 
 

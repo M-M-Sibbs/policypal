@@ -77,8 +77,9 @@ def chat():
 
     holder = current_app.config["PIPELINE"]
     try:
-        pipeline = holder.get()
-        result = pipeline.answer(question)
+        with holder.index_lock.read():  # waits while a policy update re-indexes
+            pipeline = holder.get()
+            result = pipeline.answer(question)
     except IndexUnavailable:
         return _error(503, "knowledge_base_unavailable", "The policy knowledge base is not available yet. Please try again shortly.", request_id)
     except ProviderTimeout:
@@ -110,6 +111,7 @@ def policies():
             "format": d["format"],
             "version": d["version"],
             "effective_date": d["effective_date"],
+            "origin": d.get("origin", "original"),
             "source_url": f"/sources/{d['document_id']}",
         }
         for d in load_registry(settings).values()
@@ -145,6 +147,7 @@ and <code>npm --prefix frontend run build</code>, then reload. The API is availa
 
 
 @bp.get("/")
+@bp.get("/admin")
 def index():
     dist = current_app.config["SETTINGS"].frontend_dist
     if (dist / "index.html").exists():
