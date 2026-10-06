@@ -43,7 +43,7 @@ class PolicyPalRAG(Component):
         MessageTextInput(
             name="api_url",
             display_name="PolicyPal URL",
-            info="Base URL of the running PolicyPal service, e.g. http://localhost:5000 or your Railway URL.",
+            info="Base URL of the running PolicyPal service, e.g. http://localhost:5000 or https://policypal-8u6n.onrender.com.",
             value="http://localhost:5000",
         ),
         IntInput(

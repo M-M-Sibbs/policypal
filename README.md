@@ -5,6 +5,9 @@ PolicyPal is a Retrieval-Augmented Generation (RAG) web application that answers
 - **Live app:** <https://policypal-8u6n.onrender.com> (health: [/health](https://policypal-8u6n.onrender.com/health), policy management: [/admin](https://policypal-8u6n.onrender.com/admin)). See [deployed.md](deployed.md).
 - **Design and evaluation:** [design-and-evaluation.md](design-and-evaluation.md)
 - **AI tooling:** [ai-tooling.md](ai-tooling.md)
+- **How each requirement is met:** [requirements-compliance.md](requirements-compliance.md)
+- **Planning documents (product spec, blueprint, algorithm):** [docs/project-inputs.md](docs/project-inputs.md)
+- **CI guide:** [docs/github-actions.md](docs/github-actions.md) · **Langflow:** [langflow/README.md](langflow/README.md)
 
 > **Corpus provenance.** The 12 policies in `data/policies/` are synthetic documents created for this project about a fictional company. They may be committed and redistributed with the project.
 
@@ -16,7 +19,7 @@ PolicyPal is a Retrieval-Augmented Generation (RAG) web application that answers
 4. [Local setup](#4-local-setup)
 5. [API](#5-api)
 6. [Updating policies](#6-updating-policies)
-7. [Guardrails and citations](#7-guardrails-and-citations)
+7. [Guardrails and citations](#7-guardrails-and-citations) (and the [vector database](#vector-database))
 8. [Offline mode](#8-offline-mode)
 9. [Evaluation](#9-evaluation)
 10. [Tests and CI/CD](#10-tests-and-cicd)
@@ -242,6 +245,12 @@ The index must also be rebuilt whenever chunking settings or the embedding backe
 
 ## 7. Guardrails and citations
 
+### Vector database
+
+Yes, PolicyPal uses a vector database: **Chroma** (`chromadb` 1.5), run as a persistent local database in `storage/chroma/` (`CHROMA_DIR`). `python -m app.ingest` stores one record per chunk (203 for the committed corpus): the 384-dimensional ONNX MiniLM embedding, the chunk text, and metadata (document ID, version, title, section, page or anchor, source link). Each question is embedded with the same model, and Chroma returns the nearest chunks by cosine similarity. No external database service is needed, and the index is rebuilt reproducibly from the committed policies. On Render it is built into the Docker image at build time. `index_meta.json` records the model and chunk settings, and `/health` reports `index_ready: false` if they don't match the running configuration.
+
+### Guardrails
+
 - **Input validation:** questions are trimmed, stripped of control characters and limited to 2,000 characters.
 - **Relevance threshold:** if the best similarity is below `SCORE_THRESHOLD`, the request is refused before any LLM call.
 - **Evidence-only prompt:** the model may only use the numbered passages, must cite every factual sentence, must reply `INSUFFICIENT_EVIDENCE` when the passages don't answer the question, and treats the question and passages as data (prompt-injection resistance).
@@ -307,7 +316,7 @@ To measure the deployed app, point `--url` at `https://policypal-8u6n.onrender.c
 ## 10. Tests and CI/CD
 
 ```powershell
-$env:EMBED_BACKEND="hash"; python -m pytest -q     # 69 backend tests, offline, no API key
+$env:EMBED_BACKEND="hash"; python -m pytest -q     # 73 backend tests, offline, no API key
 npm --prefix frontend test                          # frontend unit tests
 npm --prefix frontend run build
 python scripts/verify_project.py                    # required files + corpus hashes
@@ -319,7 +328,13 @@ python scripts/verify_project.py                    # required files + corpus ha
 2. **Frontend:** `npm ci` → `npm test` → `npm run build`.
 3. **Deploy** (push to `main` only, after both jobs pass): calls the Render deploy hook if the `RENDER_DEPLOY_HOOK` secret is set.
 
+CI keeps running after deployment: every push and pull request is tested, and it can be started by hand. See [docs/github-actions.md](docs/github-actions.md) for viewing runs, pull requests, deploying only after green checks, and fixing failures.
+
 The backend tests cover parsing of all four formats, chunking, idempotent and incremental index rebuilds, retrieval, citation mapping, guardrails, the API contract and error paths, and the policy-update flow (add, replace with version bump, remove, reset, invalid files, authentication, concurrency).
+
+### Langflow integration
+
+`langflow/policypal_component.py` is a Langflow custom component. Wire it as *Chat Input → PolicyPal RAG → Chat Output* and Langflow's playground answers from the same API, with the same citations. `POST /chat` accepts Langflow's `input_value` and `session_id` fields. See [langflow/README.md](langflow/README.md).
 
 ## 11. Deployment
 
@@ -368,10 +383,13 @@ app/
   admin.py         policy management API
   routes.py, sources.py   HTTP routes and source rendering
 frontend/src/      React chat (App.jsx) and admin page (Admin.jsx)
+langflow/          Langflow custom component that calls POST /chat
+docs/              project-inputs.md (spec, blueprint, algorithm), github-actions.md
 data/policies/     12 committed policies;  data/manifest.json
 examples/policy-updates/   sample files for trying updates
 eval/              questions.jsonl, run.py, results/
 scripts/           manifest, PDFs, threshold calibration, offline setup, checks
 tests/             pytest suite (offline)
 .github/workflows/ci.yml, render.yaml, Dockerfile.render, Dockerfile
+README.md, design-and-evaluation.md, ai-tooling.md, deployed.md, requirements-compliance.md
 ```

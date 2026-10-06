@@ -2,6 +2,8 @@
 
 This document explains how PolicyPal is built, why each technology was chosen, how quality and latency are measured, and the evaluation results recorded during development.
 
+The planning documents this design follows (the product spec, the development blueprint and the answering algorithm) are explained in [docs/project-inputs.md](docs/project-inputs.md). Requirement-by-requirement evidence is in [requirements-compliance.md](requirements-compliance.md).
+
 Numbers in the results section come from saved runs under `eval/results/`; they are not estimated.
 
 ---
@@ -88,6 +90,7 @@ The application can also operate without a cloud LLM because CI/offline executio
 | Re-ranking | Disabled in final production configuration | ONNX semantic retrieval produced sufficient accuracy without adding a second ML model or PyTorch dependency. | Cross-encoder re-ranking |
 | LLM | Groq `openai/gpt-oss-20b` | OpenAI-compatible API, strong policy-question performance and low observed latency. | OpenAI, OpenRouter, local LLM |
 | LLM fallback | Local extractive generator | Keeps PolicyPal available when the primary provider is unavailable, rate-limited or returns an error. | Return HTTP error immediately |
+| Langflow integration | Custom Langflow component (`langflow/policypal_component.py`) that forwards a Chat Input message to `POST /chat` | The team supplied Langflow's Chat Input component. Calling the API keeps one implementation of retrieval, guardrails and citations, so Langflow and the web app always give the same answer. | Rebuilding the pipeline as Langflow nodes (two sources of truth) |
 | Policy management | Token-protected `/admin` page and `/api/admin` API over a two-folder corpus (committed + runtime uploads) | Lets policies be added, replaced or removed without a redeploy, while the committed corpus stays untouched and can always be restored. Incremental re-embedding keeps an update fast on a small CPU. | Editing files and redeploying only; a database-backed CMS |
 | CI/CD | GitHub Actions | Reproducible test/build workflow required by the project brief. | Manual testing only |
 | Deployment | Render-compatible Docker/WSGI deployment | Supports a public hosted demonstration while preserving the same Flask API. Deployment must use environment variables for secrets. | Railway |

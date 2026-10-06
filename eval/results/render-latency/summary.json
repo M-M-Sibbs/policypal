@@ -1,0 +1,97 @@
+{
+  "run": "render-latency",
+  "timestamp_utc": "2026-10-05T14:34:50+00:00",
+  "commit": "9fe45f7",
+  "url": "https://policypal-8u6n.onrender.com",
+  "health": {
+    "status": "ok",
+    "index_ready": true,
+    "index_loaded": true,
+    "chunks": 203,
+    "documents": 12,
+    "corpus_version": "v1-2a44e4aa53",
+    "embed_backend": "onnx",
+    "llm_provider": "groq",
+    "version": "1.0.0"
+  },
+  "settings": {
+    "embed_backend": "onnx",
+    "llm_provider": "groq",
+    "provider_label": "extractive:offline",
+    "top_k": 8,
+    "top_n": 4,
+    "score_threshold": 0.35,
+    "rerank": true,
+    "chunk_tokens": 500,
+    "chunk_overlap": 75,
+    "seed": 42,
+    "delay_s": 5.0
+  },
+  "grounding_method": "lexical-proxy (no JUDGE_PROVIDER set)",
+  "host": "Windows AMD64 / Python 3.13.14",
+  "n_questions": 28,
+  "metrics": {
+    "groundedness": {
+      "numerator": 6,
+      "denominator": 6,
+      "percent": 100.0
+    },
+    "citation_accuracy": {
+      "numerator": 5,
+      "denominator": 6,
+      "percent": 83.3
+    },
+    "citation_validity": {
+      "numerator": 6,
+      "denominator": 6,
+      "percent": 100.0
+    },
+    "partial_match": {
+      "numerator": 5,
+      "denominator": 23,
+      "percent": 21.7
+    },
+    "answer_coverage": {
+      "numerator": 6,
+      "denominator": 23,
+      "percent": 26.1
+    },
+    "refusal_accuracy": {
+      "numerator": 0,
+      "denominator": 5,
+      "percent": 0.0
+    },
+    "behavior_accuracy_all": {
+      "numerator": 6,
+      "denominator": 28,
+      "percent": 21.4
+    }
+  },
+  "latency": {
+    "n_requests": 20,
+    "n_successful": 6,
+    "failures": [
+      "Q07",
+      "Q08",
+      "Q09",
+      "Q10",
+      "Q11",
+      "Q12",
+      "Q13",
+      "Q14",
+      "Q15",
+      "Q16",
+      "Q17",
+      "Q18",
+      "Q19",
+      "Q20"
+    ],
+    "p50_ms": 8251.9,
+    "p95_ms": 12084.7,
+    "mean_ms": 8272.6,
+    "max_ms": 12980.5,
+    "warmup_ms": 7973.1,
+    "warmup_status": 200,
+    "method": "client-observed wall clock, sequential, after 1 warm-up call; numpy linear percentile"
+  }
+}
