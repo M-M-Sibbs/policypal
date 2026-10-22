@@ -92,6 +92,9 @@ class Settings:
     llm_timeout_s: float = 30.0
     llm_temperature: float = 0.0
     max_tokens: int = 300
+    llm_reasoning_effort: str = ''  # optional, only for models supporting it
+    allow_extractive_fallback: bool = True
+    require_llm: bool = False
 
     # Guardrails
     max_question_chars: int = 2000
@@ -144,6 +147,9 @@ def load_settings() -> Settings:
         llm_timeout_s=_env_float("LLM_TIMEOUT_S", 30.0),
         llm_temperature=_env_float("LLM_TEMPERATURE", 0.0),
         max_tokens=_env_int("MAX_TOKENS", 300),
+        llm_reasoning_effort=_env("LLM_REASONING_EFFORT", ''),
+        allow_extractive_fallback=_env_bool("ALLOW_EXTRACTIVE_FALLBACK", True),
+        require_llm=_env_bool("REQUIRE_LLM", False),
         max_question_chars=_env_int("MAX_QUESTION_CHARS", 2000),
         answer_word_target=_env_int("ANSWER_WORD_TARGET", 150),
         max_answer_words=_env_int("MAX_ANSWER_WORDS", 250),

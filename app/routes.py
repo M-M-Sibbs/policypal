@@ -8,7 +8,7 @@ import uuid
 from flask import Blueprint, current_app, jsonify, request, send_file, send_from_directory
 
 from .config import APP_VERSION
-from .generator import ProviderError, ProviderTimeout
+from .generator import ProviderError, ProviderTimeout, PROMPT_VERSION
 from .guardrails import InvalidQuestion, validate_question
 from .rag import IndexUnavailable, check_index
 from .sources import is_valid_doc_id, load_registry, resolve_source
@@ -30,8 +30,8 @@ def _request_id() -> str:
     return "req-" + uuid.uuid4().hex[:12]
 
 
-def _error(status_code: int, status: str, message: str, request_id: str):
-    return jsonify({"request_id": request_id, "status": status, "refused": False, "message": message}), status_code
+def _error(status_code: int, status: str, message: str, request_id: str, **extra):
+    return jsonify({"request_id": request_id, "status": status, "refused": False, "message": message, **extra}), status_code
 
 
 @bp.get("/health")
@@ -48,6 +48,13 @@ def health():
         "corpus_version": (meta or {}).get("corpus_version"),
         "embed_backend": settings.embed_backend,
         "llm_provider": settings.llm_provider,
+        "configured_provider": f'{settings.llm_provider}:{settings.llm_model}',
+        "provider_status": holder.provider_status,
+        "configuration": {key: getattr(settings, key) for key in (
+            'embed_backend', 'embed_model', 'llm_provider', 'llm_model', 'top_k', 'top_n', 'score_threshold',
+            'rerank', 'chunk_tokens', 'chunk_overlap', 'seed', 'max_tokens', 'llm_temperature',
+            'llm_timeout_s', 'llm_reasoning_effort', 'allow_extractive_fallback', 'require_llm')},
+        "prompt_version": PROMPT_VERSION,
         "version": APP_VERSION,
     }
     if not ok:
@@ -66,6 +73,8 @@ def chat():
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return _error(400, "invalid_request", "Send a JSON body like {\"question\": \"...\"}.", request_id)
+    if 'require_llm' in data and not isinstance(data['require_llm'], bool):
+        return _error(400, 'invalid_request', 'require_llm must be a boolean.', request_id)
     # "input_value" is accepted so a Langflow ChatInput message can be forwarded as-is.
     raw_question = data.get("question", data.get("input_value"))
     if data.get("files"):
@@ -79,15 +88,15 @@ def chat():
     try:
         with holder.index_lock.read():  # waits while a policy update re-indexes
             pipeline = holder.get()
-            result = pipeline.answer(question)
+            result = pipeline.answer(question, require_llm=data.get('require_llm', False))
     except IndexUnavailable:
         return _error(503, "knowledge_base_unavailable", "The policy knowledge base is not available yet. Please try again shortly.", request_id)
-    except ProviderTimeout:
+    except ProviderTimeout as exc:
         log.warning("%s provider timeout", request_id)
-        return _error(504, "provider_timeout", "The answer service took too long to respond. Please retry.", request_id)
+        return _error(504, "provider_timeout", "The answer service took too long to respond. Please retry.", request_id, generation=exc.generation)
     except ProviderError as exc:
-        log.warning("%s provider error: %s", request_id, exc)
-        return _error(502, "provider_error", "The answer service is unavailable. Please retry.", request_id)
+        log.warning("%s provider error category=%s http_status=%s", request_id, exc.category, exc.status_code)
+        return _error(502, "provider_error", "The answer service is unavailable. Please retry.", request_id, generation=exc.generation)
 
     result["request_id"] = request_id
     if isinstance(data.get("session_id"), str):

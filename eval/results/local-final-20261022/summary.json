@@ -1,0 +1,176 @@
+{
+  "run": "local-final-20261022",
+  "timestamp_utc": "2026-10-22T20:17:27.069606+00:00",
+  "source": {
+    "commit": "bf0654ba299fc3709ce3651974cb6c387aa2b2bd",
+    "dirty": true,
+    "tracked_diff_sha256": "006e1ef0d1d87159c7ba8b354a587e56470708277fdb76456d0c713f60fef3bc"
+  },
+  "url": "http://127.0.0.1:5012",
+  "target": "local",
+  "server_revision": "unknown",
+  "health": {
+    "status": "ok",
+    "index_ready": true,
+    "index_loaded": false,
+    "chunks": 203,
+    "documents": 12,
+    "corpus_version": "v1-2a44e4aa53",
+    "embed_backend": "onnx",
+    "llm_provider": "groq",
+    "configured_provider": "groq:openai/gpt-oss-20b",
+    "provider_status": {
+      "availability": "unknown",
+      "observed_at": null,
+      "providers": {},
+      "scope": "process-local; no probe"
+    },
+    "configuration": {
+      "embed_backend": "onnx",
+      "embed_model": "all-MiniLM-L6-v2-onnx",
+      "llm_provider": "groq",
+      "llm_model": "openai/gpt-oss-20b",
+      "top_k": 8,
+      "top_n": 4,
+      "score_threshold": 0.3,
+      "rerank": false,
+      "chunk_tokens": 500,
+      "chunk_overlap": 75,
+      "seed": 42,
+      "max_tokens": 1200,
+      "llm_temperature": 0.0,
+      "llm_timeout_s": 30.0,
+      "llm_reasoning_effort": "low",
+      "allow_extractive_fallback": true,
+      "require_llm": false
+    },
+    "prompt_version": "strict-v3",
+    "version": "1.0.0"
+  },
+  "server_configuration": {
+    "embed_backend": "onnx",
+    "embed_model": "all-MiniLM-L6-v2-onnx",
+    "llm_provider": "groq",
+    "llm_model": "openai/gpt-oss-20b",
+    "top_k": 8,
+    "top_n": 4,
+    "score_threshold": 0.3,
+    "rerank": false,
+    "chunk_tokens": 500,
+    "chunk_overlap": 75,
+    "seed": 42,
+    "max_tokens": 1200,
+    "llm_temperature": 0.0,
+    "llm_timeout_s": 30.0,
+    "llm_reasoning_effort": "low",
+    "allow_extractive_fallback": true,
+    "require_llm": false
+  },
+  "question_set_sha256": "abd06f5a08fc2dca425be9cb7c4fdb6cc5c535fdc1ed18c39e7f5d2000211dc6",
+  "evidence_verification": "matched corpus and index configuration",
+  "strict_llm": true,
+  "n_questions": 8,
+  "generation_modes": {
+    "llm": 7,
+    "not_attempted": 1
+  },
+  "reported_provider_labels": {
+    "groq:openai/gpt-oss-20b": 7,
+    "none": 1
+  },
+  "llm_provider_coverage": {
+    "groq:openai/gpt-oss-20b": 7
+  },
+  "provider_failure_categories": {},
+  "request_failures": [],
+  "incorrect_refusals": [
+    "Q01",
+    "Q15",
+    "Q22"
+  ],
+  "corpus_versions": [
+    "v1-2a44e4aa53"
+  ],
+  "metrics": {
+    "behavior_pass": {
+      "numerator": 5,
+      "denominator": 8,
+      "percent": 62.5
+    },
+    "automated_pass": {
+      "numerator": 5,
+      "denominator": 8,
+      "percent": 62.5
+    },
+    "citation_format_valid": {
+      "numerator": 3,
+      "denominator": 3,
+      "percent": 100.0
+    },
+    "snippet_verbatim": {
+      "numerator": 3,
+      "denominator": 3,
+      "percent": 100.0
+    },
+    "answer_relevance_proxy": {
+      "numerator": 3,
+      "denominator": 3,
+      "percent": 100.0
+    },
+    "evidence_complete_proxy": {
+      "numerator": 3,
+      "denominator": 3,
+      "percent": 100.0
+    },
+    "citation_correct_proxy": {
+      "numerator": 3,
+      "denominator": 3,
+      "percent": 100.0
+    },
+    "displayed_support_proxy": {
+      "numerator": 2,
+      "denominator": 3,
+      "percent": 66.7
+    },
+    "full_passage_support_proxy": {
+      "numerator": 2,
+      "denominator": 3,
+      "percent": 66.7
+    },
+    "strict_llm_pass": {
+      "numerator": 8,
+      "denominator": 8,
+      "percent": 100.0
+    },
+    "judge_supported": {
+      "numerator": 0,
+      "denominator": 0,
+      "percent": null
+    }
+  },
+  "latency": {
+    "requested": 8,
+    "http_200_count": 8,
+    "p50_ms": 876.9,
+    "p95_ms": 1523.5,
+    "llm_count": 7,
+    "llm_only": {
+      "p50_ms": 966.3,
+      "p95_ms": 1534.5
+    },
+    "warmup": {
+      "http_status": 200,
+      "generation": {
+        "mode": "llm",
+        "provider": "groq:openai/gpt-oss-20b",
+        "failures": []
+      },
+      "latency_ms": 1733.4
+    },
+    "method": "sequential client wall clock after one warmup; no delay included; numpy linear percentile"
+  },
+  "judge": null,
+  "human_review": "pending; no human scores assigned",
+  "host": "Windows AMD64 Python 3.11.9",
+  "delay_s": 5.0
+}

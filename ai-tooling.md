@@ -7,7 +7,7 @@ The brief encourages AI coding tools and asks us to describe which ones we used,
 | Tool | Used by | Used for |
 |---|---|---|
 | **Claude** (Anthropic, model Claude Opus 5.5) in claude.ai's agentic workspace (a cloud Linux sandbox where the assistant can write files, run Python/Node, run tests and drive a headless browser) | Munashe Sibanda | Generated the first complete repository from our planning documents (1 Oct 2026); reviewed the submitted repository against the brief and rubric, fixed defects and added runtime policy updates (5 Oct); wrote the submission documents (6 Oct); guided local setup, GitHub and Render deployment step by step. |
-| *(add any other AI tool the team used, e.g. ChatGPT, Copilot or Cursor, and what for)* | | |
+| Codex | Workspace repair requested by the user, 2026-10-22 | Reproduced citation/provider defects, added regressions and diagnostics, revised evaluation, fixed Vite audit findings and updated the handoff. |
 
 ## 2. What we gave the AI, and how each input was used
 
@@ -54,8 +54,8 @@ answer(question):
         if text says INSUFFICIENT_EVIDENCE: return polite refusal     # FR-9
         cap answer at 250 words on sentence boundaries                # blueprint
         citations = map [n] markers to stored chunk metadata;         # FR-8
-                    drop unknown markers; snippet = exact passage text
-        if citations: return answer + citations
+                    reject invalid/uncited output before cleanup; snippet = selected verbatim evidence
+        if every sentence has valid citations: return answer + citations
     return refusal (no answer could be cited)
 ```
 
@@ -121,4 +121,12 @@ How Claude verified its work: it ran the full test suite (73 backend tests), the
 - AI assistance was fastest where the target was precisely specified and testable; most of our time went into writing the spec and blueprint first.
 - Environment-specific problems (Windows security policy, provider rate limits, free-tier memory, build vs runtime settings) only appeared on real machines and needed human diagnosis and decisions.
 - Automated metrics need human judgement: the lexical groundedness proxy under-counted correct paraphrased answers.
-- Every AI claim had to be checked. Statements in this repository about tests and results refer to runs we can reproduce from the README.
+- Every AI claim had to be checked. Historical claims below are the earlier team record, not fresh verification. The current repair evidence and limitations are in design-and-evaluation.md.
+
+## 2026-10-22 Codex repair
+
+The user supplied specific incorrect source cards and a mixed-valid/invalid citation exploit. Codex reproduced them with failing tests before changing the pipeline. The first stricter citation check exposed a second problem: the correction call did not include the previous answer, so the model repeated uncited paragraphs. The correction now includes the rejected answer. A local safe metadata probe identified reasoning-token exhaustion at 300 tokens; 1200/low succeeded without changing `.env`.
+
+Pytest was missing and was installed in the existing `.venv`; Node was already installed but absent from the tool PATH. Vite was updated compatibly from 8.3.2 to 8.3.3, with no force upgrade. Automated results and failed live iterations were retained; no human review cells were invented. An independent review agent could not run because of an account usage limit. No commit, push, merge, deployment, Render change or live corpus mutation was made.
+
+Earlier team-reported human scores and compliance claims have not been independently repeated. Valid citation format, lexical overlap and verbatim source text each establish less than semantic truth. See [design-and-evaluation.md](design-and-evaluation.md) and [Render checklist](docs/render-checklist.md).

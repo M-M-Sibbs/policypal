@@ -5,11 +5,12 @@ from __future__ import annotations
 import threading
 import time
 from contextlib import contextmanager
+from contextvars import ContextVar
 
-from .citations import build_citations, normalise_markers
+from .citations import build_citations, normalise_markers, citation_format_valid
 from .config import Settings, set_seeds
 from .embeddings import get_embedder
-from .generator import build_generator
+from .generator import build_generator, ChatGenerator, ExtractiveGenerator, ProviderError
 from .guardrails import (
     REFUSAL_INSUFFICIENT,
     REFUSAL_OUT_OF_SCOPE,
@@ -47,6 +48,7 @@ class RagPipeline:
         self.retriever = retriever
         self.generator = generator
         self.index_meta = index_meta
+        self._generation = ContextVar('generation', default=None)
 
     @classmethod
     def from_settings(cls, settings: Settings, generator=None, embedder=None, reranker=None) -> "RagPipeline":
@@ -78,7 +80,10 @@ class RagPipeline:
             "refused": refused,
             "citations": citations,
             "corpus_version": self.index_meta.get("corpus_version"),
-            "provider": getattr(self.generator, "last_label", getattr(self.generator, "label", "unknown")),
+            "provider": self._generation.get()['provider'],
+            "generation": self._generation.get(),
+            "citation_validation": {'format': 'valid' if citations else 'not_applicable',
+                                    'semantic_support': 'not_verified'},
             "truncated": truncated,
             "retrieval": {
                 "best_similarity": round(retrieval.best_similarity, 4) if retrieval else None,
@@ -96,8 +101,10 @@ class RagPipeline:
             "latency_ms": int((time.perf_counter() - started) * 1000),
         }
 
-    def answer(self, question: str) -> dict:
+    def answer(self, question: str, require_llm: bool = False) -> dict:
         started = time.perf_counter()
+        self._generation.set({'mode': 'not_attempted', 'provider': None, 'failures': []})
+        require_llm = require_llm or self.settings.require_llm
         retrieval = self.retriever.retrieve(question)
 
         # Guardrail 1: nothing in the corpus is close enough -> refuse before calling the LLM.
@@ -107,13 +114,25 @@ class RagPipeline:
         hits = retrieval.hits
         result = None
         for attempt in range(2):  # Guardrail 3: citations required; retry once
-            raw = self.generator.generate(question, hits, retry=attempt == 1)
+            if isinstance(self.generator, ChatGenerator):
+                raw = self.generator.generate(question, hits, retry=attempt == 1, require_llm=require_llm)
+                self._generation.set(self.generator.generation_info)
+            else:
+                if require_llm and isinstance(self.generator, ExtractiveGenerator):
+                    raise ProviderError('Offline mode cannot provide an LLM answer', category='configuration')
+                raw = self.generator.generate(question, hits, retry=attempt == 1)
+                self._generation.set({'mode': 'offline_demo' if isinstance(self.generator, ExtractiveGenerator) else 'llm',
+                                      'provider': self.generator.label, 'failures': []})
             if is_refusal(raw):
                 return self._refusal("insufficient_evidence", REFUSAL_INSUFFICIENT, retrieval, started)
+            # Validate BEFORE truncation/cleanup: never launder an unsupported
+            # statement by removing its invalid citation or its trailing text.
+            if not citation_format_valid(raw, set(range(1, len(hits) + 1))):
+                continue
             # Guardrail 2: verify the length cap after generation
             capped, truncated = enforce_word_cap(normalise_markers(raw), self.settings.max_answer_words)
             result = build_citations(capped, hits, self.settings.snippet_chars)
-            if result.citations:
+            if result.citations and result.format_valid:
                 return self._payload("answered", result.answer, result.citations, retrieval, started, truncated=truncated)
         return self._refusal("insufficient_evidence", REFUSAL_UNCITED, retrieval, started)
 
@@ -173,6 +192,13 @@ class PipelineHolder:
     @property
     def loaded(self) -> bool:
         return self._pipeline is not None
+
+    @property
+    def provider_status(self):
+        generator = self._pipeline.generator if self._pipeline else None
+        return getattr(generator, 'provider_status', {
+            'availability': 'not_applicable' if self.settings.llm_provider == 'extractive' else 'unknown',
+            'observed_at': None, 'providers': {}, 'scope': 'process-local; no probe'})
 
     @property
     def embedder(self):

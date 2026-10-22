@@ -1,0 +1,26 @@
+{
+  "scope": "local controlled retry-prompt probe; not hosted",
+  "question_id": "Q22",
+  "observed_date": "2026-10-22",
+  "records": [
+    {
+      "max_tokens": 300,
+      "reasoning_effort": null,
+      "http_status": 200,
+      "finish_reason": "length",
+      "content_chars": 0,
+      "reasoning_chars": 1394,
+      "completion_tokens": 300
+    },
+    {
+      "max_tokens": 1200,
+      "reasoning_effort": "low",
+      "http_status": 200,
+      "finish_reason": "stop",
+      "content_chars": 139,
+      "reasoning_chars": 92,
+      "completion_tokens": 64
+    }
+  ],
+  "sensitive_content_recorded": false
+}

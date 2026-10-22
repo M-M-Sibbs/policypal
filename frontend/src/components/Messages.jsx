@@ -129,6 +129,7 @@ function Answer({ data }) {
             {open.has(c.id) && (
               <div className="source-body">
                 <blockquote>{c.snippet}</blockquote>
+                {c.snippet_truncated && <p className="muted small">Excerpt shortened. Open the source for the full passage.</p>}
                 <div className="source-foot">
                   <span className="muted small">
                     {c.document_id} · version {c.document_version}
@@ -147,8 +148,11 @@ function Answer({ data }) {
 }
 
 function Meta({ data }) {
+  const mode = data.generation?.mode;
   return (
     <p className="meta">
+      {mode === 'degraded' && <strong>Limited service: the AI provider is unavailable. Showing extracted policy text. </strong>}
+      {mode === 'offline_demo' && <strong>Offline demo: showing extracted policy text. </strong>}
       {(data.latency_ms / 1000).toFixed(1)} s · {data.provider}
     </p>
   );

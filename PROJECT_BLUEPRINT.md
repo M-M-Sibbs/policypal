@@ -1,13 +1,27 @@
 # Company Policy Assistant — Development Blueprint & Tracker
 
-**Document version:** 0.2  
-**Last updated:** 2026-10-01  
+**Document version:** 0.3
+**Last updated:** 2026-10-22
 **Project Document:** Mathew Muwomo  
 **Collaborating developer:** Munashe Sibanda  
 **Current stage:** Implementation — first complete build in repository; production-model evaluation, CI run on GitHub, deployment and demo pending  
 **Delivery progress:** 3/8 milestones complete (37.5%) — M2, M3, M6
 
 > Keep this file in the repository as `PROJECT_BLUEPRINT.md`. It is the team's working source of truth for scope, decisions, tasks, interfaces and evidence of completion. Update it in the same pull request as the work it describes. The official assignment brief takes precedence over this document.
+
+## Current repair decisions (supersede historical implementation settings below)
+
+T32 ? Citation/provider/evaluation repair. Owner: Codex at the user?s request. Status: In review; no merge/push/deploy authorized. Evidence: `tests/test_citation_regressions.py`, `tests/test_provider_modes.py`, `tests/test_evaluation.py` and `eval/results/local-handoff-20261022/`. Human semantic approval and hosted diagnostics remain open.
+
+D13 ? Preserve Flask/React/Chroma architecture; current local semantic configuration is ONNX MiniLM, top 8/top 4, threshold 0.30, no reranker, Groq `openai/gpt-oss-20b`. Repair verification uses 1200 completion tokens and low reasoning effort, with the existing 250-word answer cap. Historical bge/llama settings below describe earlier decisions, not the current deployment.
+
+D14 ? Reject mixed invalid citations and uncited sentences before cleanup/capping; one correction attempt includes the previous answer. Source cards retain selected list/table context and multi-claim excerpts. Citation format and semantic support are separate concerns.
+
+D15 ? Add `generation` metadata for LLM/demo/degraded/not-attempted/unavailable modes, optional strict requests and safe error categories. Health reports configured provider and process-local observations without model probes. Local `.env`, Render environment and live corpus stay untouched.
+
+D16 ? Evaluation scores remain explicit proxies, actual provider coverage is required for strict runs, local and hosted artifacts stay separate, and every claimed human score requires a named review. Prior performance/compliance claims do not validate the repair. The roadmap completion percentage below is a historical delivery tracker, not a current accuracy score.
+
+See [design and evaluation](design-and-evaluation.md), [Render checklist](docs/render-checklist.md) and [repair handoff](docs/repair-handoff.md).
 
 ## 1. Important source clarification
 

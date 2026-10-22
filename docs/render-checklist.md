@@ -1,0 +1,15 @@
+﻿# Render diagnostic checklist
+
+This is a handoff checklist, not a record of settings changed. Local `.env` edits do not update Render. The hosted failure must be diagnosed independently of the earlier local key correction and the local token-limit finding.
+
+- Identify the deployed Git revision/image and service. The current public API does not report a revision; the evaluator records it as unknown. Compare deployment logs with the intended branch only after deployment is authorized.
+- In Render Environment, privately verify `LLM_PROVIDER`, `LLM_MODEL`, `LLM_BASE_URL`, and that `LLM_API_KEY` is present, belongs to the selected provider/project and has model access. Never paste values of secrets, request headers or response payloads into issues or reports.
+- Check `LLM_FALLBACK_PROVIDER`/model/key separately if configured. Verify account/model permissions, quota and provider status. Do not assume authentication failure from the extractive label.
+- Check `MAX_TOKENS` and model-supported reasoning settings. Local Groq GPT-OSS verification used `MAX_TOKENS=1200`, `LLM_REASONING_EFFORT=low`; `render.yaml` still specifies 300. A `token_limit` diagnostic warrants checking that budget, not replacing credentials. Unsupported reasoning parameters can instead produce `model_rejection`.
+- After an authorized deployment of these changes, make one controlled `/chat` request and inspect `generation.mode`, `generation.failures` and safe `provider_failure` log lines: authentication (401/403), rate_limit (429), model_rejection (400/404/422), timeout, connection, upstream (5xx), malformed_response or token_limit. Correlate route request IDs and timestamps. Health checks make no model call and cannot diagnose a provider that has never been called.
+- Compare `configured_provider` and timestamped `provider_status`. These are per-process last observations, not a global/live availability promise. Check worker restarts and whether the failed request and health request reached the same process.
+- Confirm `ALLOW_EXTRACTIVE_FALLBACK` and `REQUIRE_LLM` match the intended service behavior. For verification, request `require_llm: true` and run the evaluator with `--strict-llm`; legacy servers may ignore the request field but still fail the evaluator's coverage check.
+- Compare index/corpus version, document counts, `EMBED_BACKEND`, `EMBED_MODEL`, chunk sizes, retrieval settings and runtime upload state. Do not reset/rebuild the hosted corpus to make a benchmark pass. Save a fresh hosted result under a unique name, separate from local results.
+- Inspect all eight requested answers and source cards. An HTTP 200 or a configured Groq label is insufficient. Obtain a named human semantic review before claiming accuracy or compliance.
+
+Read-only observation in this session: `/health` reported ready ONNX/203 chunks/12 documents, configured Groq, corpus `v1-2a44e4aa53`. Eight hosted response labels were extractive. The underlying provider failure remains unknown. Render account/log access is needed for that diagnosis. No deployment, environment change or policy mutation was performed.

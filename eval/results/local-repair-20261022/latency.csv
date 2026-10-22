@@ -1,0 +1,9 @@
+id,http_status,status,mode,client_latency_ms,server_latency_ms
+Q01,502,provider_error,unavailable,3142.9,
+Q03,502,provider_error,unavailable,2323.6,
+Q12,200,answered,llm,1048.5,1027
+Q14,200,answered,llm,872.8,868
+Q15,502,provider_error,unavailable,1988.8,
+Q22,502,provider_error,unavailable,1823.4,
+Q24,200,insufficient_evidence,llm,852.7,848
+Q28,200,out_of_scope,not_attempted,26.0,22

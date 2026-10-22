@@ -1,6 +1,6 @@
 # PolicyPal — Company Policy Assistant (RAG)
 
-PolicyPal is a Retrieval-Augmented Generation (RAG) web application that answers employee questions about the policies of a fictional company, Acme Corp. It retrieves the relevant policy passages, generates an answer using only those passages, and returns numbered citations with the supporting snippet and a link to the source section. Questions outside the policy corpus, or not supported by the retrieved evidence, are refused instead of answered from general knowledge.
+PolicyPal is a Retrieval-Augmented Generation (RAG) web application that answers employee questions about the policies of a fictional company, Acme Corp. It retrieves the relevant policy passages, prompts a model to answer from those passages, and returns numbered citations with the supporting snippet and a link to the source section. Structural citation checks and refusal rules reduce unsupported answers; they do not guarantee factual correctness. Semantic review remains necessary.
 
 - **Live app:** <https://policypal-8u6n.onrender.com> (health: [/health](https://policypal-8u6n.onrender.com/health), policy management: [/admin](https://policypal-8u6n.onrender.com/admin)). See [deployed.md](deployed.md).
 - **Design and evaluation:** [design-and-evaluation.md](design-and-evaluation.md)
@@ -51,8 +51,8 @@ To run it on your own machine instead, follow [§4](#4-local-setup) (about 10 mi
 | Vector store | Chroma persistent client (cosine) |
 | Embeddings | ONNX `all-MiniLM-L6-v2-onnx` (384 dimensions, no PyTorch) |
 | Retrieval | `TOP_K=8` candidates → `TOP_N=4` passages, `SCORE_THRESHOLD=0.30`, no re-ranking |
-| LLM | Groq `openai/gpt-oss-20b`, temperature 0, `MAX_TOKENS=300` |
-| LLM fallback | `extractive:offline` (quotes the best passages) if the provider fails |
+| LLM | Groq `openai/gpt-oss-20b`, temperature 0; verified repair run: `MAX_TOKENS=1200`, `LLM_REASONING_EFFORT=low` |
+| LLM fallback | Explicit `generation.mode=degraded`; strict mode disables it. `LLM_PROVIDER=extractive` is an offline demo. |
 | Chunking | Heading-first, 500-token windows, 75-token overlap |
 | Seed | 42 |
 
@@ -99,7 +99,7 @@ py -3.11 -m venv .venv
 python -m pip install --upgrade pip
 pip install -r requirements-lite.txt    # ONNX configuration, no PyTorch
 
-Copy-Item .env.example .env
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 notepad .env                             # set LLM_API_KEY (and ADMIN_TOKEN to try /admin)
 
 python -m app.ingest                     # builds the index; downloads the ONNX model once
@@ -115,7 +115,7 @@ git clone https://github.com/<your-account>/company-policy-rag.git
 cd company-policy-rag
 python3.11 -m venv .venv && source .venv/bin/activate
 pip install --upgrade pip && pip install -r requirements-lite.txt
-cp .env.example .env                     # set LLM_API_KEY (and ADMIN_TOKEN)
+test -f .env || cp .env.example .env                     # set LLM_API_KEY (and ADMIN_TOKEN)
 python -m app.ingest
 npm --prefix frontend ci && npm --prefix frontend run build
 python -m flask --app app run --host 127.0.0.1 --port 5000
@@ -133,7 +133,7 @@ Invoke-RestMethod http://127.0.0.1:5000/health     # or: curl http://127.0.0.1:5
 {"status": "ok", "index_ready": true, "chunks": 203, "documents": 12, "embed_backend": "onnx", "llm_provider": "groq", "...": "..."}
 ```
 
-`/health` never calls the LLM. Never commit `.env`; it is listed in `.gitignore`.
+`/health` never calls the LLM. `configured_provider` describes configuration; `provider_status` reports timestamped, process-local last observations (initially unknown), not a live availability guarantee. Never commit `.env`; it is listed in `.gitignore`.
 
 ## 5. API
 
@@ -175,7 +175,7 @@ Example response (shortened; wording, scores and timings vary):
 
 | HTTP | `status` | Meaning |
 |---|---|---|
-| 200 | `answered` | Evidence-backed answer with at least one valid citation |
+| 200 | `answered` | Answer passing citation-format checks; inspect evidence for semantic support |
 | 200 | `insufficient_evidence` | Policy-related, but the retrieved passages don't contain the answer |
 | 200 | `out_of_scope` | Not related to the policies: *"I can only answer about our policies."* |
 | 400 | `invalid_request` | Empty, longer than 2,000 characters, or malformed JSON |
@@ -254,9 +254,9 @@ Yes, PolicyPal uses a vector database: **Chroma** (`chromadb` 1.5), run as a per
 - **Input validation:** questions are trimmed, stripped of control characters and limited to 2,000 characters.
 - **Relevance threshold:** if the best similarity is below `SCORE_THRESHOLD`, the request is refused before any LLM call.
 - **Evidence-only prompt:** the model may only use the numbered passages, must cite every factual sentence, must reply `INSUFFICIENT_EVIDENCE` when the passages don't answer the question, and treats the question and passages as data (prompt-injection resistance).
-- **Citations from metadata:** the model only writes markers like `[1]`. The backend drops invalid markers and builds titles, sections, snippets and links from stored chunk metadata, so the model cannot invent a source. An answer without a valid citation is retried once, then refused.
-- **Output limit:** the prompt asks for ≤150 words, the provider is capped at 300 tokens, and the backend enforces a 250-word cap at sentence boundaries.
-- **Provider resilience:** if Groq fails, the extractive generator answers by quoting the passages, and the response says `provider: extractive:offline`.
+- **Citations from metadata:** the model only writes markers like `[1]`. The backend rejects outputs with invalid markers or uncited sentences before cleanup or truncation. One correction attempt includes the previous answer, then the request is refused. Titles and links come from metadata; snippets retain selected list/table context and evidence for repeated markers. Format validity does not establish semantic support.
+- **Output limit:** the prompt asks for ≤150 words, the provider budget is configurable (reasoning models also spend this budget on reasoning), and the backend enforces a 250-word cap at sentence boundaries.
+- **Provider resilience:** provider failures carry safe categories. A successful extractive fallback is labelled `generation.mode=degraded` in API and UI. If fallback cannot answer, or `REQUIRE_LLM=1`, the service returns 502/504 with `mode=unavailable`.
 - **Safe display:** answers are rendered as text, not HTML; source pages are served with a restrictive Content-Security-Policy.
 
 ## 8. Offline mode
@@ -276,47 +276,30 @@ Offline mode uses `EMBED_BACKEND=hash` (lexical) and `LLM_PROVIDER=extractive` f
 
 ## 9. Evaluation
 
-`eval/questions.jsonl` has 28 questions: 21 direct (every policy), 2 multi-document, 2 missing-evidence, 2 out-of-scope and 1 prompt-injection. Final benchmark (ONNX + Groq `openai/gpt-oss-20b`, 28/28 answered by Groq):
+`eval/questions.jsonl` has 28 questions. Evaluation checks format validity, incorrect refusals, answer relevance, displayed evidence completeness and per-sentence lexical support. These are automated proxies, not semantic accuracy scores. Historical results under `eval/results/` are retained but do not validate the current checkout or hosted provider.
 
-| Metric | Result | Target |
-|---|---|---|
-| Groundedness (human-reviewed) | **100.0%** (23/23) | ≥ 90% |
-| Groundedness (automated lexical proxy) | 73.9% (17/23) | — (paraphrase false negatives, see design doc) |
-| Citation accuracy | **100.0%** (23/23) | ≥ 90% |
-| Citation validity | **100.0%** (23/23) | 100% |
-| Partial match | **95.7%** (22/23) | ≥ 80% |
-| Refusal accuracy | **100.0%** (5/5) | 100% |
-| Latency p50 / p95 (local) | **790 ms / 954 ms** | < 2.5 s / < 6 s |
-
-Methodology, per-question results, the human review and limitations are in [design-and-evaluation.md](design-and-evaluation.md).
-
-### Reproducing
+The 2026-10-22 repair results and limitations are in [design-and-evaluation.md](design-and-evaluation.md). Human review fields remain blank until a named person reviews every claim and source card.
 
 ```powershell
-# Terminal 1
-python -m flask --app app run --host 127.0.0.1 --port 5000
-
-# Terminal 2
-.\.venv\Scripts\Activate.ps1
+# Terminal 1: preserve .env; use process-only overrides for the tested Groq model.
 $env:PRELOAD_PIPELINE="0"
-python -m eval.run --url http://127.0.0.1:5000 --name onnx-groq-final --latency-n 10 --delay-s 5
+$env:MAX_TOKENS="1200"
+$env:LLM_REASONING_EFFORT="low"
+.\.venv\Scripts\python.exe -m flask --app app run --host 127.0.0.1 --port 5012
+
+# Terminal 2: choose a NEW run name; existing results are never overwritten.
+$env:PRELOAD_PIPELINE="0"
+.\.venv\Scripts\python.exe -m eval.run --url http://127.0.0.1:5012 --name local-review --strict-llm --evidence-index storage/chroma --delay-s 5
 ```
 
-`--delay-s` spaces requests to stay within Groq's free-tier rate limits; it is applied after each request is timed, so it does not inflate latency. Results are written to `eval/results/<run-name>/` (`summary.md`, `summary.json`, `results.jsonl`, `latency.csv`, `review_sheet.csv`).
+`--strict-llm` sends `require_llm: true` and independently rejects extractive/unknown coverage, including on old servers that ignore the flag. Exit 2 means at least one automated/strict check failed; inspect the saved rows. Exit 0 still requires human semantic review. `--ids Q01,Q03,Q12,Q14,Q15,Q22,Q24,Q28` runs the eight repair questions. `--evidence-index` is optional: absent or mismatched evidence is recorded as unverified, never borrowed silently from a local corpus for a hosted run. Server configuration is recorded only when the server reports it.
 
-To add an independent LLM-judge groundedness score (a different model from the generator):
-
-```powershell
-$env:JUDGE_PROVIDER="groq"; $env:JUDGE_API_KEY="<groq key>"; $env:JUDGE_MODEL="llama-3.3-70b-versatile"
-python -m eval.run --url http://127.0.0.1:5000 --name onnx-groq-judge --latency-n 20 --delay-s 5
-```
-
-To measure the deployed app, point `--url` at `https://policypal-8u6n.onrender.com` (open the site first so it is awake).
+Each run records all observed provider modes/failures, corpus/configuration, evaluator commit and dirty state, question-set hash, raw answers/cards, timings and a blank review sheet. Optional `JUDGE_PROVIDER`, `JUDGE_MODEL`, `JUDGE_API_KEY` enable an additional fallible model-judge label, never a human review. Use a different model from the generator.
 
 ## 10. Tests and CI/CD
 
 ```powershell
-$env:EMBED_BACKEND="hash"; python -m pytest -q     # 73 backend tests, offline, no API key
+$env:EMBED_BACKEND="hash"; python -m pytest -q     # offline backend tests; no API calls
 npm --prefix frontend test                          # frontend unit tests
 npm --prefix frontend run build
 python scripts/verify_project.py                    # required files + corpus hashes
@@ -336,6 +319,8 @@ The backend tests cover parsing of all four formats, chunking, idempotent and in
 
 `langflow/policypal_component.py` is a Langflow custom component. Wire it as *Chat Input → PolicyPal RAG → Chat Output* and Langflow's playground answers from the same API, with the same citations. `POST /chat` accepts Langflow's `input_value` and `session_id` fields. See [langflow/README.md](langflow/README.md).
 
+See the [Render diagnostic checklist](docs/render-checklist.md) before diagnosing hosted failures. Local `.env` changes do not affect Render.
+
 ## 11. Deployment
 
 The app is deployed on Render's free plan from `render.yaml` and `Dockerfile.render`. The image builds the React UI, installs `requirements-lite.txt` and builds the ONNX index at build time, so it starts ready to answer.
@@ -353,7 +338,9 @@ The app is deployed on Render's free plan from `render.yaml` and `Dockerfile.ren
 |---|---|---|
 | `LLM_PROVIDER` / `LLM_MODEL` | `groq` / `openai/gpt-oss-20b` | Generator (`extractive` = offline) |
 | `LLM_API_KEY` | — | Provider key; only in `.env` or host secrets |
-| `LLM_TIMEOUT_S`, `LLM_TEMPERATURE`, `MAX_TOKENS` | 30, 0, 300 | Generation limits |
+| `LLM_TIMEOUT_S`, `LLM_TEMPERATURE`, `MAX_TOKENS` | 30, 0, 1200 in repair run | Generation limits; existing environments may still use 300 |
+| `LLM_REASONING_EFFORT` | `low` in repair run | Optional; only set for a model that supports it |
+| `ALLOW_EXTRACTIVE_FALLBACK` / `REQUIRE_LLM` | 1 / 0 | Allow degraded output / require an LLM |
 | `EMBED_BACKEND` / `EMBED_MODEL` | `onnx` / `all-MiniLM-L6-v2-onnx` | Embeddings (`hash` = offline) |
 | `TOP_K`, `TOP_N`, `SCORE_THRESHOLD`, `RERANK` | 8, 4, 0.30, 0 | Retrieval |
 | `CHUNK_TOKENS`, `CHUNK_OVERLAP`, `SEED` | 500, 75, 42 | Chunking and reproducibility |

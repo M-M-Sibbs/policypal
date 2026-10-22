@@ -1,6 +1,8 @@
-# Requirements compliance
+# Requirements evidence map
 
-This document maps every requirement in the *AI Engineering Project* brief, and every criterion of the score-5 rubric, to where it is met in this repository. Each line names the evidence a reviewer can open or run.
+> 2026-10-22 correction: this is a historical requirements map, not current compliance certification. Previous 100% citation/grounding claims did not establish support for every displayed snippet. Current repair verification is in [design-and-evaluation.md](design-and-evaluation.md); human review, fresh CI and hosted provider diagnosis remain pending. Historical test counts/metrics below must not be used as current results.
+
+This document maps every requirement in the *AI Engineering Project* brief, and every criterion of the score-5 rubric, to the historical implementation evidence in this repository. Each line names the evidence a reviewer can open or run.
 
 **Repository status key:** ✅ done and evidenced in the repository · 🟡 done, but the evidence is produced outside the repository (to be confirmed by the team before submission).
 
@@ -45,7 +47,7 @@ This document maps every requirement in the *AI Engineering Project* brief, and 
 | Top-k retrieval with optional re-ranking | ✅ | Top 8 by cosine → top 4 to the LLM; optional cross-encoder re-ranker (`RERANK=1`) (`app/retriever.py`). Tests: `test_expected_document_is_retrieved` |
 | Prompt injects retrieved chunks with sources | ✅ | Numbered passages `[1] (POL-02 · Paid Time Off · Carry-over …)` in a delimited `<context>` block (`app/generator.py::build_messages`). Test: `test_prompt_delimits_untrusted_text` |
 | Guardrail: refuse outside the corpus ("I can only answer about our policies") | ✅ | Similarity threshold refuses before the LLM is called; the prompt's `INSUFFICIENT_EVIDENCE` rule handles in-topic gaps. Tests: `test_out_of_scope_is_refused_without_calling_the_llm`, `test_model_refusal_becomes_insufficient_evidence`; eval refusal accuracy 100% (5/5) |
-| Guardrail: limit output length | ✅ | ≤150 words in the prompt, `MAX_TOKENS=300`, 250-word hard cap at sentence boundaries. Tests: `test_long_answer_is_capped`, `test_word_cap_cuts_at_sentence_boundaries` |
+| Guardrail: limit output length | ✅ | ≤150 words in the prompt, configurable completion budget, 250-word hard cap at sentence boundaries. Tests: `test_long_answer_is_capped`, `test_word_cap_cuts_at_sentence_boundaries` |
 | Guardrail: always cite source doc IDs/titles | ✅ | Answers without a valid citation are retried once, then refused; citations built from stored metadata. Tests: `test_uncited_answer_is_retried_then_refused`, `test_markers_are_mapped_renumbered_and_invalid_ones_dropped` |
 
 ### Step 4 — Web application

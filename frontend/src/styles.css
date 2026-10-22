@@ -91,7 +91,7 @@ a { color: var(--accent); }
 .source-title { flex: 1; font-size: 14px; }
 .chev { color: var(--muted); font-weight: 700; }
 .source-body { padding: 0 12px 12px 44px; }
-.source-body blockquote { margin: 0; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--surface); font-family: var(--serif); font-size: 15px; color: var(--ink-2); border-radius: 0 6px 6px 0; }
+.source-body blockquote { margin: 0; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--surface); font-family: var(--serif); font-size: 15px; color: var(--ink-2); border-radius: 0 6px 6px 0; white-space: pre-line; }
 .source-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
 .source-foot a { font-weight: 600; font-size: 14px; text-decoration: none; }
 .source-foot a:hover { text-decoration: underline; }

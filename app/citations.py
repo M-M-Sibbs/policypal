@@ -10,8 +10,8 @@ from .embeddings import content_tokens
 from .generator import split_sentences
 from .vectorstore import Hit
 
-MARKER_RE = re.compile(r"\[(\d{1,2})\]")
-GROUPED_RE = re.compile(r"\[(\d{1,2}(?:\s*,\s*\d{1,2})+)\]")
+MARKER_RE = re.compile(r"\[(\d+)\]")
+GROUPED_RE = re.compile(r"\[(\d+(?:\s*,\s*\d+)+)\]")
 
 
 @dataclass
@@ -19,6 +19,30 @@ class CitationResult:
     answer: str
     citations: list[dict]
     dropped_markers: list[int]
+    format_valid: bool = False
+
+
+def citation_format_valid(answer: str, valid_ids: set[int]) -> bool:
+    """Structural checks only, NOT semantic entailment or factual accuracy.
+
+    Conservatively require citations on every text-bearing sentence/list item.
+    Reject the entire output on unknown/malformed markers or uncited text;
+    deleting a marker cannot repair its unsupported claim.
+    """
+    answer = normalise_markers(answer)
+    remainder = MARKER_RE.sub('', answer)
+    if '[' in remainder or ']' in remainder:
+        return False
+    units = split_sentences(answer)
+    if not units:
+        return False
+    for unit in units:
+        ids = {int(m.group(1)) for m in MARKER_RE.finditer(unit)}
+        if not ids or not ids <= valid_ids:
+            return False
+        if not re.search(r'\w', MARKER_RE.sub('', unit)):
+            return False
+    return True
 
 
 def normalise_markers(answer: str) -> str:
@@ -34,15 +58,50 @@ def best_snippet(chunk_text: str, claim_text: str, limit: int) -> str:
     best_i, best_score = 0, -1.0
     for i, sentence in enumerate(sentences):
         tokens = set(content_tokens(sentence))
-        score = len(claim_tokens & tokens) / (len(tokens) ** 0.5 or 1.0)
+        # Match common morphological variants (approve/approval/approved)
+        # without introducing question- or policy-specific rules.
+        overlap = sum(any(t == c or (min(len(t), len(c)) >= 5 and
+                      t[:min(len(t), len(c)) - 1] == c[:min(len(t), len(c)) - 1]) for t in tokens)
+                      for c in claim_tokens)
+        # Numeric bands can support a derived amount absent verbatim from the
+        # answer. Do not penalise a range simply for having extra endpoints.
+        lexical_length = sum(not re.search(r'\d', t) for t in tokens)
+        score = overlap / (lexical_length ** 0.5 or 1.0)
+        # Introductions alone cannot support a claim about a particular item.
+        if sentence.endswith(':') and i + 1 < len(sentences):
+            score *= 0.5
+        if '|' in sentence and i + 1 < len(sentences) and '|' in sentences[i + 1] and (i == 0 or '|' not in sentences[i - 1]):
+            score *= 0.5  # table header is context, not a data row
         if score > best_score:
             best_i, best_score = i, score
-    snippet = sentences[best_i]
+    first, last = best_i, best_i
+    if sentences[best_i].endswith(':') and best_i + 1 < len(sentences):
+        last += 1
+    # Preserve the governing list introduction, or the column header for a
+    # table row. Keep a contiguous excerpt so omissions are never concealed.
+    for i in range(best_i - 1, -1, -1):
+        if sentences[i].endswith(':'):
+            first = i
+            break
+        if not ('|' in sentences[best_i] or sentences[i].endswith(';')):
+            break
+        if '|' in sentences[best_i] and '|' in sentences[i]:
+            first = i
+    start = chunk_text.find(sentences[first])
+    end = chunk_text.find(sentences[last], start) + len(sentences[last])
+    snippet = chunk_text[start:end]
+    if len(snippet) > limit and first < best_i:
+        # Keep both the governing context and selected item; explicitly mark
+        # omitted intervening rows instead of truncating away the evidence.
+        snippet = sentences[first] + '\n…\n' + sentences[best_i]
+        return snippet
     # add the following sentence for context when there is room
     if best_i + 1 < len(sentences) and len(snippet) + 1 + len(sentences[best_i + 1]) <= limit:
-        candidate = f"{snippet} {sentences[best_i + 1]}"
-        if candidate in chunk_text:
-            snippet = candidate
+        next_end = chunk_text.find(sentences[best_i + 1], end)
+        if next_end >= 0 and last == best_i and first == best_i:
+            candidate = chunk_text[start:next_end + len(sentences[best_i + 1])]
+            if len(candidate) <= limit:
+                snippet = candidate
     if len(snippet) > limit:
         cut = snippet[: limit - 1].rsplit(" ", 1)[0]
         snippet = cut + "…"
@@ -50,7 +109,8 @@ def best_snippet(chunk_text: str, claim_text: str, limit: int) -> str:
 
 
 def snippet_is_verbatim(snippet: str, chunk_text: str) -> bool:
-    return snippet.rstrip("…") in chunk_text
+    parts = snippet.split('\n…\n')
+    return bool(parts) and all(part.rstrip('…').strip() and part.rstrip('…') in chunk_text for part in parts)
 
 
 def build_citations(answer: str, hits: list[Hit], snippet_chars: int = 300) -> CitationResult:
@@ -90,6 +150,13 @@ def build_citations(answer: str, hits: list[Hit], snippet_chars: int = 300) -> C
         new = renumber[old]
         chunk = hits[old - 1].chunk
         claim_text = " ".join(claims[new]) or clean_answer
+        # Compound sentences can state several facts backed by different
+        # passages of one chunk. Select evidence for each clause as well.
+        claim_units = [unit for claim in (claims[new] or [claim_text])
+                       for unit in re.split(r';\s*|,\s+and\s+', claim) if unit.strip()]
+        excerpts = list(dict.fromkeys(best_snippet(chunk.text, claim, snippet_chars) for claim in claim_units))
+        excerpts = [e for e in excerpts if not any(e != other and e in other for other in excerpts)]
+        snippet = '\n…\n'.join(excerpts)
         citations.append(
             {
                 "id": new,
@@ -102,9 +169,11 @@ def build_citations(answer: str, hits: list[Hit], snippet_chars: int = 300) -> C
                 "section": chunk.section,
                 "page_start": chunk.page_start,
                 "page_end": chunk.page_end,
-                "snippet": best_snippet(chunk.text, claim_text, snippet_chars),
+                "snippet": snippet,
+                "snippet_truncated": any(excerpt.endswith('…') for excerpt in excerpts),
                 "source_url": chunk.source_url,
                 "url": chunk.source_url,
             }
         )
-    return CitationResult(answer=clean_answer, citations=citations, dropped_markers=dropped)
+    return CitationResult(answer=clean_answer, citations=citations, dropped_markers=dropped,
+                          format_valid=citation_format_valid(answer, valid))

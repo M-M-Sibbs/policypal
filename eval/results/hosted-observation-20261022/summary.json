@@ -1,0 +1,121 @@
+{
+  "run": "hosted-observation-20261022",
+  "timestamp_utc": "2026-10-22T20:11:08.246141+00:00",
+  "source": {
+    "commit": "bf0654ba299fc3709ce3651974cb6c387aa2b2bd",
+    "dirty": true,
+    "tracked_diff_sha256": "2311f9c87353ed60ecd1bb663513327f895aceeac59bd2370c876d18088fc722"
+  },
+  "url": "https://policypal-8u6n.onrender.com",
+  "target": "hosted",
+  "server_revision": "unknown",
+  "health": {
+    "status": "ok",
+    "index_ready": true,
+    "index_loaded": true,
+    "chunks": 203,
+    "documents": 12,
+    "corpus_version": "v1-2a44e4aa53",
+    "embed_backend": "onnx",
+    "llm_provider": "groq",
+    "version": "1.0.0"
+  },
+  "server_configuration": "unknown; local configuration is not substituted",
+  "question_set_sha256": "abd06f5a08fc2dca425be9cb7c4fdb6cc5c535fdc1ed18c39e7f5d2000211dc6",
+  "evidence_verification": "not supplied; verbatim verification unavailable",
+  "strict_llm": true,
+  "n_questions": 8,
+  "generation_modes": {
+    "unknown": 8
+  },
+  "reported_provider_labels": {
+    "extractive:offline": 8
+  },
+  "llm_provider_coverage": {},
+  "provider_failure_categories": {},
+  "request_failures": [],
+  "incorrect_refusals": [
+    "Q12"
+  ],
+  "corpus_versions": [
+    "v1-2a44e4aa53"
+  ],
+  "metrics": {
+    "behavior_pass": {
+      "numerator": 5,
+      "denominator": 8,
+      "percent": 62.5
+    },
+    "automated_pass": {
+      "numerator": 0,
+      "denominator": 8,
+      "percent": 0.0
+    },
+    "citation_format_valid": {
+      "numerator": 6,
+      "denominator": 6,
+      "percent": 100.0
+    },
+    "snippet_verbatim": {
+      "numerator": 0,
+      "denominator": 0,
+      "percent": null
+    },
+    "answer_relevance_proxy": {
+      "numerator": 4,
+      "denominator": 6,
+      "percent": 66.7
+    },
+    "evidence_complete_proxy": {
+      "numerator": 3,
+      "denominator": 6,
+      "percent": 50.0
+    },
+    "citation_correct_proxy": {
+      "numerator": 2,
+      "denominator": 6,
+      "percent": 33.3
+    },
+    "displayed_support_proxy": {
+      "numerator": 5,
+      "denominator": 6,
+      "percent": 83.3
+    },
+    "full_passage_support_proxy": {
+      "numerator": 0,
+      "denominator": 0,
+      "percent": null
+    },
+    "strict_llm_pass": {
+      "numerator": 0,
+      "denominator": 8,
+      "percent": 0.0
+    },
+    "judge_supported": {
+      "numerator": 0,
+      "denominator": 0,
+      "percent": null
+    }
+  },
+  "latency": {
+    "requested": 8,
+    "http_200_count": 8,
+    "p50_ms": 4360.8,
+    "p95_ms": 5232.0,
+    "llm_count": 0,
+    "llm_only": {
+      "p50_ms": null,
+      "p95_ms": null
+    },
+    "warmup": {
+      "http_status": 200,
+      "generation": null,
+      "latency_ms": 4931.1
+    },
+    "method": "sequential client wall clock after one warmup; no delay included; numpy linear percentile"
+  },
+  "judge": null,
+  "human_review": "pending; no human scores assigned",
+  "host": "Windows AMD64 Python 3.11.9",
+  "delay_s": 5.0
+}

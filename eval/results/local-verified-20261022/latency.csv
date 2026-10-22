@@ -1,0 +1,9 @@
+id,http_status,status,mode,client_latency_ms,server_latency_ms
+Q01,200,answered,llm,1676.9,1672
+Q03,200,insufficient_evidence,llm,1437.7,1433
+Q12,200,answered,llm,830.1,826
+Q14,200,answered,llm,761.0,742
+Q15,200,insufficient_evidence,llm,1697.4,1693
+Q22,200,insufficient_evidence,llm,1485.4,1480
+Q24,200,insufficient_evidence,llm,768.0,746
+Q28,200,out_of_scope,not_attempted,27.8,23
